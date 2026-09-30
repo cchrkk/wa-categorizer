@@ -239,6 +239,33 @@ try {
     assert(after.includes('\n  - id: orders-text'), 'the indentation did not come back as spaces');
   });
 
+  await check('a textMatch pattern that is empty is refused (it matches everything)', async () => {
+    // "- !word" is a YAML tag: YAML turns it into "". With mode contains,
+    // includes("") is always true, so the rule fires on every message.
+    const bad = [
+      'settings: {}',
+      'rules:',
+      '  - id: gate',
+      '    match:',
+      '      type: text',
+      '      textMatch:',
+      '        mode: contains',
+      '        patterns:',
+      '          - !open',
+      '    actions:',
+      '      - type: notify.console',
+      '',
+    ].join('\n');
+    const { status, body } = await j(await fetch(`${base}/api/rules`, {
+      method: 'PUT',
+      headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ yaml: bad, dryRun: true }),
+    }));
+    assert(status === 400, `it should have refused, status ${status}`);
+    assert(/empty pattern/.test(body.error || ''), `unclear error: ${body.error}`);
+    assert(/YAML tag/.test(body.error || ''), 'the error does not explain where the empty pattern comes from');
+  });
+
   if (process.env.OPENAI_API_KEY) {
     await check('POST /api/test-audio transcribes a voice note', async () => {
       const audio = path.join(paths.data, 'samples', 'note.ogg');

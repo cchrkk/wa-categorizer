@@ -137,6 +137,24 @@ function normalizeRule(rule, index) {
   if (rule.markRead === true) {
     errors.push(`rule "${id}": "markRead" is not supported — the project is in read-only mode`);
   }
+
+  // Un pattern vuoto non vuol dire "nessun filtro": in mode contains
+  // `includes('')` è sempre vero, quindi la regola matcha OGNI messaggio di quel
+  // tipo, in ogni chat e da chiunque. Ci si arriva scrivendo "- !parola": YAML
+  // lo legge come un tag e lo trasforma in "". È un errore che non si vede —
+  // in produzione ha aperto un cancello a ogni messaggio — quindi meglio non
+  // caricare la configurazione che lasciarla girare.
+  const textMatch = rule.match?.textMatch;
+  if (textMatch && typeof textMatch === 'object' && !Array.isArray(textMatch)) {
+    const patterns = [].concat(textMatch.patterns ?? textMatch.value ?? []);
+    if (patterns.some((p) => p == null || String(p) === '')) {
+      errors.push(
+        `rule "${id}": textMatch has an empty pattern — it matches EVERY message. ` +
+        'A pattern written as "- !word" is a YAML tag, not a string: YAML turns it into "". ' +
+        'Write it without the "!", or wrap it in quotes.',
+      );
+    }
+  }
   return {
     id,
     name: rule.name || id,
