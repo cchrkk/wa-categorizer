@@ -1,0 +1,49 @@
+# ============================================================
+#  VOICE NOTES IN A GROUP, FILTERED BY CONTENT
+#
+#  The group is chosen by name; `isGroup: true` keeps 1:1 chats out
+#  (without it, "Family" would also match a contact with that name).
+#
+#  This is about not drowning: groups talk about everything, and here only
+#  the voice notes containing the words you care about get through.
+# ============================================================
+
+rules:
+  - id: group-important-voice-notes
+    name: "Group — filtered voice notes"
+    priority: 90
+    enabled: false
+
+    match:
+      isGroup: true
+      chatName: Family         # "contains": also matches "Family 🏠"
+      type: audio
+      textMatch:
+        mode: contains
+        patterns: [dinner, late, hospital, pickup, school, bill]
+
+    transcribe: true
+
+    actions:
+      - type: notify.telegram
+        message: |
+          👨‍👩‍👧 in *{{chat}}* — {{sender}}:
+          {{transcript}}
+
+    # ------------------------------------------------------------
+    # GROUP NAME: three ways, from convenient to bulletproof
+    #
+    # 1. contains (above): if the group is called "Family 🏠" it still works,
+    #    but "Family and friends" would be caught too.
+    #
+    # 2. regex, if several groups interest you:
+    #      chatName:
+    #        mode: regex
+    #        flags: iu
+    #        patterns: ['(?<![\p{L}\p{N}])(family|relatives)(?![\p{L}\p{N}])']
+    #
+    # 3. jid: that never changes, not even if the group is renamed.
+    #    Group jids end in @g.us; find it in data/messages.jsonl or in the
+    #    web panel by testing a message:
+    #      chatJid: "120363000000000000@g.us"
+    # ------------------------------------------------------------

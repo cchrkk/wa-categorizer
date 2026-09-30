@@ -1,18 +1,19 @@
-# Percorso dei dati (NON nel repository)
+# Data folder (NOT in the repository)
 
-Questa cartella contiene dati personali e viene ignorata da git. Qui finiscono:
+This folder holds personal data and is ignored by git. It contains:
 
-| File / cartella        | Contenuto                                          |
-|------------------------|----------------------------------------------------|
-| `auth/`                | sessione WhatsApp — **segreta**, dà accesso all'account |
-| `messages.jsonl`       | log di tutti i messaggi processati                  |
-| `state.json`           | id già visti (anti-duplicati) + statistiche         |
-| `contacts.json`        | rubrica: LID ↔ numero di telefono ↔ nomi            |
-| `instance.lock`        | lock dell'istanza in esecuzione                     |
-| `out/audio/`           | vocali scaricati                                    |
-| `out/<altro>/`         | altri media                                         |
-| `samples/`             | file audio di prova generati (es. `nota.ogg`)       |
+| File / folder | Contents |
+|---|---|
+| `auth/` | WhatsApp session — **secret**, it grants access to the account |
+| `messages.jsonl` | log of every processed message |
+| `state.json` | ids already seen (de-duplication) + counters |
+| `contacts.json` | address book: LID ↔ phone number ↔ names |
+| `instance.lock` | lock of the running instance |
+| `web-token.txt` | generated panel token, if `WEB_TOKEN` is empty |
+| `out/audio/` | downloaded voice notes |
+| `out/<other>/` | other media |
+| `samples/` | generated test audio (e.g. `note.ogg`) |
 
-La cartella viene ricreata da sola al primo avvio.
+The folder is recreated on first start.
 
-Per rigenerare un vocale di prova: `powershell -File tools\make-sample-audio.ps1`
+To generate a test voice note: `powershell -File tools/make-sample-audio.ps1`

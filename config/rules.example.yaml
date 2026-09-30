@@ -1,96 +1,95 @@
 # ==============================================================
-#  wa-categorizer — regole (ESEMPIO MINIMO)
+#  wa-categorizer — rules (MINIMAL EXAMPLE)
 #
-#  Copialo in rules.yaml e modificatelo:
-#      copy config\rules.example.yaml config\rules.yaml
+#  Copy it to rules.yaml and edit it:
+#      cp config/rules.example.yaml config/rules.yaml
 #
-#  Questo file serve a partire: ha solo le impostazioni e due regole
-#  funzionanti. Per gli altri casi (tutti i messaggi di una persona,
-#  filtri per parola, gruppi, classificazione LLM, comandi per casa,
-#  documenti...) guarda la cartella `examples/`:
-#  ogni caso è un file a sé, con il titolo che dice cosa fa, e si copia
-#  direttamente in `config/rules.d/` senza incollare niente.
+#  This file is a starting point: settings plus two working rules.
+#  For everything else (every message from one person, keyword filters,
+#  groups, LLM classification, home commands, documents...) look at the
+#  `examples/` folder: each case is its own file, titled with what it does,
+#  and can be copied straight into `config/rules.d/` with nothing to paste.
 #
-#  Salvi e le regole si ricaricano da sole: niente riavvio.
-#    npm run check       valida quello che hai scritto
-#    npm run simulate    prova un messaggio finto, senza toccare WhatsApp
-#    npm run contacts    jid, LID e nomi che il programma conosce
+#  Save it and the rules reload by themselves: no restart needed.
+#    npm run check       validates what you wrote
+#    npm run simulate    runs a fake message, without touching WhatsApp
+#    npm run contacts    jids, LIDs and names the program knows
 #
-#  Segnaposto usabili nelle stringhe:
-#    {{content}}  il testo, o la trascrizione se è un vocale  (il più usato)
+#  PLACEHOLDERS AVAILABLE IN STRINGS
+#    {{content}}  the text, or the transcript for a voice note  (most used)
 #    {{text}} {{transcript}} {{chat}} {{chatJid}} {{sender}} {{senderJid}}
 #    {{rule}} {{ruleName}} {{type}} {{label}} {{confidence}}
 #    {{fileName}} {{seconds}} {{date}}
-#    {{1}} {{2}}... e {{nomeGruppo}}: parole prese dalla regex
+#    {{1}} {{2}}... and {{namedGroup}}: words taken from the regex
 # ==============================================================
 
 settings:
-  # Scarica e trascrive i vocali (Groq / whisper locale, vedi .env)
+  # Download and transcribe voice notes (Groq / local whisper, see .env)
   transcribeAudio: true
-  # Log di tutti i messaggi in data/messages.jsonl
+  # Log every message to data/messages.jsonl
   logMessages: true
-  # true = processa anche i messaggi che scrivi TU (serve per i comandi casa)
+  # true = also process messages YOU send (needed for the home commands)
   processOwnMessages: false
-  # azione "shell" (esegue comandi locali): da lasciare false
+  # "shell" action (runs local commands): leave it false
   allowShell: false
-  # Quanto tenere i media scaricati in data/out/ (in giorni):
-  #   > 0  N giorni | 0  li cancella subito | -1  mai
+  # How long to keep downloaded media in data/out/ (days):
+  #   > 0  N days | 0  delete right after processing | -1  never
   mediaRetentionDays: 7
 
 
 rules:
 
   # ------------------------------------------------------------
-  # Ordini scritti: una quantità seguita da un prodotto
+  # Written orders: a quantity followed by a product
   # ------------------------------------------------------------
-  - id: ordini-scritti
-    name: "Ordini — testo con quantità"
+  - id: orders-text
+    name: "Orders — text with a quantity"
     priority: 10
     enabled: true
 
     match:
-      chatName: Ordini
+      chatName: Orders
       type: text
       textMatch:
         mode: regex
-        # flags: iu serve per i confini unicode. Con '\b...\b' (solo ASCII)
-        # una parola accentata non matcherebbe mai: `npm run check` avvisa.
+        # flags: iu enables Unicode boundaries. With '\b...\b' (ASCII only)
+        # an accented word would never match: `npm run check` warns about it.
         flags: iu
         patterns:
-          - '(?<![\p{L}\p{N}])(?:\d+|uno|due|tre|quattro|cinque|sei|sette|otto|nove|dieci)\s+(casse|cartoni|bottiglie|pezzi|kg|chili)(?![\p{L}\p{N}])'
+          - '(?<![\p{L}\p{N}])(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(boxes|cartons|bottles|pallets|kg|pounds)(?![\p{L}\p{N}])'
 
     actions:
       - type: appendJsonl
-        file: data/ordini.jsonl
+        file: data/orders.jsonl
       - type: notify.telegram
         message: |
-          📝 Ordine in {{chat}} da {{sender}}:
+          📝 Order in {{chat}} from {{sender}}:
           {{text}}
 
   # ------------------------------------------------------------
-  # Ordini a voce: stessa idea, ma la trascrizione scrive i numeri a
-  # parole ("tre casse"), quindi qui NON si può pretendere la cifra.
+  # Voice orders: same idea, but the transcript spells numbers out
+  # ("three boxes"), so here you cannot demand a digit.
   # ------------------------------------------------------------
-  - id: ordini-vocali
-    name: "Ordini — vocali con parole chiave"
+  - id: orders-voice
+    name: "Orders — voice notes with keywords"
     priority: 11
     enabled: true
 
     match:
-      chatName: Ordini
+      chatName: Orders
       type: audio
       textMatch:
         mode: regex
         flags: iu
         patterns:
-          - '(?<![\p{L}\p{N}])(casse|cartoni|bottiglie|pezzi|kg|chili|porta\w*)(?![\p{L}\p{N}])'
+          - '(?<![\p{L}\p{N}])(boxes|cartons|bottles|pallets|kg|bring\w*)(?![\p{L}\p{N}])'
 
     transcribe: true
 
     actions:
       - type: appendJsonl
-        file: data/ordini.jsonl
+        file: data/orders.jsonl
       - type: notify.telegram
         message: |
-          🎙️ Ordine vocale in {{chat}} da {{sender}}:
+          🎙️ Voice order in {{chat}} from {{sender}}:
           {{transcript}}

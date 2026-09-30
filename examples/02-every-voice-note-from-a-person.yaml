@@ -1,0 +1,43 @@
+# ============================================================
+#  EVERY VOICE NOTE FROM ONE PERSON
+#
+#  The voice note is transcribed and the text passed on. No filtering:
+#  every voice note, even a two-second one.
+#
+#  Note: transcription costs money (Groq) or CPU (local whisper), so this
+#  rule spends on every single voice note. If you get a lot of useless
+#  ones, add a filter like in example 03.
+# ============================================================
+
+rules:
+  - id: every-voice-note-from-mario
+    name: "Mario — every voice note, transcribed"
+    priority: 100
+    enabled: false
+
+    match:
+      chatName: Mario
+      type: audio              # audio = voice note or audio file
+
+    # transcribes BEFORE the actions: inside them you use {{transcript}}
+    transcribe: true
+
+    actions:
+      - type: notify.telegram
+        message: |
+          🎙️ Voice from {{sender}}
+          {{transcript}}
+
+      - type: appendJsonl
+        file: data/voice-mario.jsonl
+
+    # To test it without waiting for a real voice note, the web panel lets
+    # you drag any audio file into the test bench.
+
+    # `ptt: true` narrows it to push-to-talk voice notes only, leaving out
+    # real audio files, if you need to tell them apart:
+    #   type: audio
+    #   ptt: true
+
+    # {{seconds}} is the duration of the voice note:
+    #   message: "🎙️ {{seconds}}s da {{sender}}: {{transcript}}"

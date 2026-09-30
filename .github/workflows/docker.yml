@@ -1,7 +1,8 @@
 name: build
 
-# Costruisce l'immagine e la pubblica su GHCR.
-# Su dkct basta `docker compose pull && docker compose up -d`: nessun clone, nessuna build.
+# Builds the image and publishes it to GHCR.
+# On a server, `docker compose pull && docker compose up -d` is then enough:
+# no clone, no build.
 
 on:
   push:
@@ -16,7 +17,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Prima di costruire: il codice si carica e le regole di esempio sono valide?
+  # Before building: does the code load, and are the example rules valid?
   smoke:
     runs-on: ubuntu-latest
     steps:
@@ -29,47 +30,47 @@ jobs:
 
       - run: npm ci --omit=dev
 
-      - name: Sintassi di tutti i sorgenti
+      - name: Syntax of every source file
         run: for f in src/*.js; do node --check "$f"; done
 
-      - name: Le regole di esempio si caricano e il motore risponde
+      - name: Example rules load and the engine responds
         run: node src/index.js --simulate fixtures/sample-text.json --config config/rules.example.yaml
 
-      - name: Azioni Home Assistant contro il finto HA
+      - name: Home Assistant actions against the fake HA
         run: |
           node tools/mock-ha.mjs 8199 > /tmp/mock-ha.log 2>&1 &
           MOCK_PID=$!
           sleep 2
           export HA_URL=http://127.0.0.1:8199
-          export HA_TOKEN=prova
+          export HA_TOKEN=test
           node src/index.js --check --config fixtures/ha-actions.yaml
           node src/index.js --simulate fixtures/sample-text.json --config fixtures/ha-actions.yaml --live
           kill "$MOCK_PID"
-          echo "--- chiamate ricevute ---"
+          echo "--- calls received ---"
           cat /tmp/mock-ha.log
 
-      - name: Comandi casa (segnaposto dai gruppi di cattura)
+      - name: Home commands (placeholders from capture groups)
         run: |
-          node tools/mock-ha.mjs 8200 > /tmp/mock-casa.log 2>&1 &
+          node tools/mock-ha.mjs 8200 > /tmp/mock-home.log 2>&1 &
           MOCK_PID=$!
           sleep 2
           export HA_URL=http://127.0.0.1:8200
-          export HA_TOKEN=prova
-          node src/index.js --simulate fixtures/casa.json --config fixtures/comandi-casa.yaml --live
+          export HA_TOKEN=test
+          node src/index.js --simulate fixtures/home.json --config fixtures/home-commands.yaml --live
           kill "$MOCK_PID"
-          echo "--- chiamate ricevute ---"
-          cat /tmp/mock-casa.log
-          grep -q 'light.cameretta' /tmp/mock-casa.log \
-            && echo "OK: ha chiamato light.turn_on su light.cameretta" \
-            || { echo "ERRORE: entity_id non arrivato"; exit 1; }
+          echo "--- calls received ---"
+          cat /tmp/mock-home.log
+          grep -q 'light.bedroom' /tmp/mock-home.log \
+            && echo "OK: called light.turn_on on light.bedroom" \
+            || { echo "ERROR: entity_id never arrived"; exit 1; }
 
-      - name: Pannello web
+      - name: Web panel
         run: node tools/web-smoke.mjs
 
-      - name: Editor del pannello
+      - name: Panel editor
         run: node tools/editor-test.mjs
 
-      - name: Motore delle regole
+      - name: Rule engine
         run: node tools/rules-test.mjs
 
   build:
@@ -84,8 +85,8 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      # Sulle PR non si pubblica niente: solo verifica che l'immagine si costruisca
-      - name: Login a GHCR
+      # On pull requests nothing is published: it only checks that the image builds
+      - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:

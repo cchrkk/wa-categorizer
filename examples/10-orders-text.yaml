@@ -1,0 +1,53 @@
+# ============================================================
+#  ORDERS CHAT: WRITTEN MESSAGES
+#
+#  The classic case. The only difference from example 11 (voice notes) is
+#  `type: text`: the matching logic is the same, but here you can demand a
+#  quantity, because a written order almost always contains it as a digit.
+# ============================================================
+
+rules:
+  - id: orders-text
+    name: "Orders — text with a quantity"
+    priority: 10
+    enabled: false
+
+    match:
+      chatName: Orders
+      type: text
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          # a digit, or the number spelled out ("three"), followed by a
+          # product. The Unicode boundaries stop "boxes" being matched
+          # inside another word.
+          - '(?<![\p{L}\p{N}])(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(boxes|cartons|bottles|pallets|kg|pounds)(?![\p{L}\p{N}])'
+
+    actions:
+      - type: appendJsonl
+        file: data/orders.jsonl
+      - type: notify.telegram
+        message: |
+          📝 Order in {{chat}} from {{sender}}:
+          {{text}}
+
+    # ------------------------------------------------------------
+    # IF THE WORD ALONE IS ENOUGH, WITHOUT A QUANTITY
+    #
+    # Orders often arrive as "bring 10 of those": there is a digit, but the
+    # keyword comes BEFORE it. With '(?:\d+|...)\s+(product)' it would
+    # never match.
+    #
+    # `contains` does not have that problem, but you lose whole-word
+    # matching ("oro" inside "lavoro"). If you need whole words and free
+    # order, use a regex with no digit in front:
+    #
+    #   textMatch:
+    #     mode: regex
+    #     flags: iu
+    #     patterns: ['(?<![\p{L}\p{N}])(boxes|cartons|bring\w*|pallets)(?![\p{L}\p{N}])']
+    #
+    # Rule of thumb: with WRITTEN text you can demand the digit, with VOICE
+    # NOTES you cannot — the transcript spells numbers out.
+    # ------------------------------------------------------------

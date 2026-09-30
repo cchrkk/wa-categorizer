@@ -1,6 +1,8 @@
-# File di prova per `tools/mock-ha.mjs`: contiene tutte le azioni Home Assistant.
+# Test file for `tools/mock-ha.mjs`: contains every Home Assistant action.
 #   node tools/mock-ha.mjs 8199
-#   HA_URL=http://127.0.0.1:8199 HA_TOKEN=prova node src/index.js --simulate fixtures/sample-text.json --config fixtures/ha-actions.yaml --live
+#   HA_URL=http://127.0.0.1:8199 HA_TOKEN=test \
+#     node src/index.js --simulate fixtures/sample-text.json \
+#     --config fixtures/ha-actions.yaml --live
 
 settings:
   transcribeAudio: false
@@ -8,54 +10,54 @@ settings:
   mediaRetentionDays: -1
 
 rules:
-  - id: prova-azioni-ha
-    name: "Prova: tutte le azioni Home Assistant"
+  - id: test-ha-actions
+    name: "Test: every Home Assistant action"
     enabled: true
     match:
       type: text
 
     actions:
-      # 1. premere un bottone
+      # 1. press a button
       - type: ha.button
-        button: button.campanello
+        button: button.doorbell
 
-      # 2. eseguire uno script passando variabili (segnaposto resi anche dentro)
+      # 2. run a script with variables (placeholders work in there too)
       - type: ha.script
-        script: script.notifica_ordine
+        script: script.notify_order
         variables:
-          testo: "{{content}}"
-          mittente: "{{sender}}"
+          text: "{{content}}"
+          from: "{{sender}}"
           chat: "{{chat}}"
           jid: "{{senderJid}}"
-          quando: "{{date}}"
+          when: "{{date}}"
 
-      # 3. eseguire uno script e aspettare la sua risposta
+      # 3. run a script and wait for its response
       - type: ha.script
-        script: script.con_risposta
+        script: script.with_response
         wait: true
         variables:
-          domanda: "{{content}}"
+          question: "{{content}}"
 
-      # 4. attivare un'automazione
+      # 4. trigger an automation
       - type: ha.automation
-        automation: cancello
+        automation: gate
 
-      # 5. notifica sul telefono (scorciatoia per notify.*)
+      # 5. phone notification (shortcut for notify.*)
       - type: ha.notify
-        service: mobile_app_il_mio_telefono
-        title: "Ordine da {{sender}}"
+        service: mobile_app_my_phone
+        title: "Order from {{sender}}"
         message: "{{content}}"
 
-      # 6. servizio generico, con entity_id e dati
+      # 6. generic service, with entity_id and data
       - type: ha.service
         domain: light
         service: turn_on
-        entityId: light.salotto
+        entityId: light.living_room
         data:
           brightness_pct: 60
           rgb_color: [255, 200, 0]
 
-      # 7. azione generica su una entità: il dominio si ricava dall'entity_id
+      # 7. generic action on an entity: the domain comes from the entity_id
       - type: ha.action
-        entityId: switch.presa_macchina
+        entityId: switch.machine_plug
         action: toggle

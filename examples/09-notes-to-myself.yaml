@@ -1,0 +1,48 @@
+# ============================================================
+#  NOTES TO YOURSELF
+#
+#  What you write in the chat with yourself goes wherever you want.
+#  It is the most convenient way to test the whole chain without
+#  disturbing anyone: you write, and see whether the rules do what you
+#  thought they did.
+#
+#  REQUIRES in config/rules.yaml:
+#      settings:
+#        processOwnMessages: true
+#  without it your own messages are ignored before anything else.
+# ============================================================
+
+rules:
+  - id: notes-to-myself
+    name: "Notes to myself"
+    priority: 200
+    enabled: false
+
+    match:
+      senderJid: "@me"          # only me
+      type: [text, audio]
+
+    transcribe: true
+
+    actions:
+      - type: notify.console
+        message: "📝 {{content}}"
+      - type: appendJsonl
+        file: data/notes.jsonl
+
+    # `@me` covers your account in whatever form WhatsApp presents it
+    # (phone number or @lid). If you prefer being explicit:
+    #   senderJid: "393331234567@s.whatsapp.net"
+    # and `npm run contacts` tells you the forms it knows.
+    #
+    # To go to Telegram instead of the terminal:
+    #   - type: notify.telegram
+    #     message: "📝 {{content}}"
+
+    # Handy: a separate rule for notes only, so they land somewhere else
+    # than the general "everything from me" rule.
+    #   match:
+    #     senderJid: "@me"
+    #     textMatch:
+    #       mode: contains
+    #       patterns: [note, todo, reminder]

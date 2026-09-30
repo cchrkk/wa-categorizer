@@ -22,12 +22,12 @@ SOFTWARE.
 
 ---
 
-NOTA IMPORTANTE SUL PROGETTO
+IMPORTANT NOTE ABOUT THIS PROJECT
 
-Questo software utilizza Baileys, una libreria non ufficiale che si collega a
-WhatsApp tramite il protocollo di WhatsApp Web. L'uso può violare i Termini di
-Servizio di WhatsApp e il numero collegato può essere limitato o bannato.
-L'autore non è affiliato a WhatsApp né a Meta.
+This software uses Baileys, an unofficial library that connects to WhatsApp
+through the WhatsApp Web protocol. Doing so may violate WhatsApp's Terms of
+Service, and the linked number may be restricted or banned. The author is not
+affiliated with WhatsApp or Meta.
 
-L'utente è l'unico responsabile dell'uso che ne fa e del rispetto delle leggi
-applicabili, incluso il trattamento dei dati personali dei propri contatti.
+You are solely responsible for how you use it and for complying with applicable
+law, including the processing of your contacts' personal data.

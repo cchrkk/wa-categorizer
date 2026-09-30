@@ -1,24 +1,23 @@
-# Deploy su dkct
+# Deploy on dkct
 
-Stack `wa-categorizer` sull'environment **2** di Dockhand, in
-`/data/stacks/wa-categorizer/` sull'host.
+The `wa-categorizer` stack on Dockhand environment **2**, living in
+`/data/stacks/wa-categorizer/` on the host.
 
 ```text
 /data/stacks/wa-categorizer/
-├─ compose.yaml      modificabile dal pannello di Dockhand
-├─ .env              SOLO segreti (mode 600)
-├─ config/rules.yaml regole, bind-montate → ricarica a caldo
-└─ data/             sessione WhatsApp, log, media, rubrica
+├─ compose.yaml      editable from the Dockhand panel
+├─ .env              SECRETS ONLY (mode 600)
+├─ config/rules.yaml rules, bind-mounted → live reload
+└─ data/             WhatsApp session, logs, media, contacts
 ```
 
-## L'immagine arriva da GHCR
+## The image comes from GHCR
 
-L'immagine la costruisce **GitHub Actions** a ogni push su `main` e la pubblica
-su `ghcr.io/cchrkk/wa-categorizer`. Il server la scarica: nessun build, nessun
-clone del repo.
+**GitHub Actions** builds the image on every push to `main` and publishes it to
+`ghcr.io/cchrkk/wa-categorizer`. The server downloads it: no build, no repo clone.
 
-Il motivo per cui il build **non** può farlo Dockhand: l'agent Hawser di dkct
-gira con queste restrizioni.
+Why the build **cannot** be done by the Docker agent here: it runs with these
+restrictions.
 
 ```ini
 ProtectSystem=strict
@@ -26,55 +25,53 @@ ProtectHome=true
 ReadWritePaths=/var/run/docker.sock /data/stacks
 ```
 
-`ProtectHome=true` rende `/root` inaccessibile in scrittura, quindi
-`docker compose build` non riesce a creare `/root/.docker` e fallisce con
-`mkdir /root/.docker: read-only file system`. Il `pull` non ha questo problema.
+`ProtectHome=true` makes `/root` inaccessible for writing, so `docker compose build`
+cannot create `/root/.docker` and fails with `mkdir /root/.docker: read-only file
+system`. `pull` does not have that problem.
 
-## Segreti contro configurazione
+## Secrets versus configuration
 
-| Dove | Cosa | Perché |
+| Where | What | Why |
 |---|---|---|
-| **`.env`** | `OPENAI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `HA_TOKEN`, `WEB_TOKEN`, `HA_URL` | sono segreti (o indirizzi interni) e non vanno né nel repo né nel compose |
-| **`compose.yaml`** | `LOG_LEVEL`, `TRANSCRIBE_*`, `WEB_ENABLED`, `WEB_BIND`, … | non sono segreti, e nel compose sono **visibili e modificabili dal pannello di Dockhand** |
+| **`.env`** | `OPENAI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `HA_TOKEN`, `WEB_TOKEN`, `HA_URL` | they are secrets (or internal addresses) and belong neither in the repo nor in the compose |
+| **`compose.yaml`** | `LOG_LEVEL`, `TRANSCRIBE_*`, `WEB_ENABLED`, `WEB_BIND`, the published port | not secret, and in the compose they are **visible and editable from the management panel** |
 
-Se un valore ti serve modificabile dall'interfaccia, mettilo in `environment:`
-nel compose — `env_file` Dockhand non lo mostra.
+If you need a value to be editable from the panel, put it in `environment:` in the
+compose — variables arriving through `env_file:` are usually not shown.
 
-`if` `WEB_ENABLED` è `false`, **commenta anche `ports:`**: altrimenti resta una
-porta pubblicata su tutta la LAN con niente dietro.
+**The env file is written by the panel.** Edits made over SSH to `.env` are wiped on
+the next deploy, so put anything you change often in the compose.
 
-## Aggiornare
+## Updating
 
-Dal pannello di Dockhand: **recreate** dello stack (il compose ha
-`pull_policy: always`, quindi prende l'ultima immagine).
+From the management panel: **recreate** the stack (the compose has
+`pull_policy: always`, so it picks up the latest image).
 
-Oppure da riga di comando:
+Or from the command line:
 
 ```bash
 ssh root@<host> 'sh /data/stacks/wa-categorizer/app/deploy/dkct/update.sh'
 ```
 
-`data/` non viene toccato: **la sessione WhatsApp resta**, niente QR da rifare.
+`data/` is untouched: **the WhatsApp session survives**, no QR to scan again.
 
-Per ricaricare solo le regole non serve niente: si salva `config/rules.yaml` e
-il programma le rilegge da solo (watch sul file). Anche la rete è comoda:
-`config/rules.yaml` è un file di testo, si modifica dalla LAN.
+To reload only the rules nothing is needed: save `config/rules.yaml` and the program
+re-reads it (it watches the file).
 
-## Primo avvio / sessione WhatsApp
+## First start / WhatsApp session
 
-Se `data/auth/` è vuota, il QR compare nei log e va inquadrato da
-WhatsApp → *Dispositivi collegati*:
+If `data/auth/` is empty, the QR appears in the logs and must be scanned from
+WhatsApp → *Linked devices*:
 
 ```bash
 docker compose logs -f wa-categorizer
 ```
 
-Se invece ci si copia dentro una sessione già attiva, il container parte già
-collegato. Attenzione: **due processi con la stessa `auth/` si contendono la
-connessione** e WhatsApp risponde `440 connection replaced` in loop fino allo
-stop di uno dei due.
+If instead you copy in a session that is already active, the container starts already
+connected. Careful: **two processes sharing the same `auth/` fight over the
+connection** and WhatsApp answers `440 connection replaced` in a loop until one stops.
 
-## Verifiche
+## Checks
 
 ```bash
 docker compose exec wa-categorizer node src/index.js --check

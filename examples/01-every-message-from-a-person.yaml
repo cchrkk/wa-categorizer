@@ -1,0 +1,34 @@
+# ============================================================
+#  EVERY TEXT MESSAGE FROM ONE PERSON
+#
+#  No content filtering: if that person writes to you, it fires.
+#  Useful so you never miss anything from an important contact, or to
+#  start collecting data and see what you actually need.
+#
+#  In a 1:1 chat the chat name is the contact's name.
+#  General settings live only in config/rules.yaml.
+# ============================================================
+
+rules:
+  - id: every-text-from-mario
+    name: "Mario — every text message"
+    priority: 100
+    enabled: false
+
+    match:
+      chatName: Mario          # "contains": also matches "Mario Rossi"
+      type: text
+
+    actions:
+      - type: notify.console
+        message: "💬 {{sender}}: {{text}}"
+      # instead of notify.console you can use:
+      #   - type: appendJsonl
+      #     file: data/messages-mario.jsonl
+      #   - type: notify.telegram
+      #     message: "{{sender}}: {{text}}"
+
+    # The safe identity is the jid, which never changes (not even if you
+    # rename the contact). Find it with `npm run contacts`, or read it from
+    # data/messages.jsonl after one message:
+    #   chatJid: "390000000001@s.whatsapp.net"

@@ -1,34 +1,35 @@
 #!/bin/sh
-# Aggiorna wa-categorizer su dkct.
+# Updates wa-categorizer on a server.
 #
 #   ssh root@<host> 'sh /data/stacks/wa-categorizer/app/deploy/dkct/update.sh'
 #
-# Scarica l'immagine già costruita da GitHub Actions e riavvia lo stack.
-# Nessun build qui: su dkct non funzionerebbe (l'agent Hawser ha /root in
-# sola lettura, buildx non può creare /root/.docker).
+# Downloads the image already built by GitHub Actions and restarts the stack.
+# No build here: on hosts where the Docker agent has /root read-only, buildx
+# cannot create /root/.docker and the build fails.
 #
-# Di norma NON serve questo script: il compose ha `pull_policy: always`, quindi
-# basta un "recreate" dal pannello di Dockhand per prendere l'ultima immagine.
+# Normally you do not need this script: the compose has `pull_policy: always`,
+# so a "recreate" from the management panel is enough to pick up the latest
+# image.
 set -e
 
 DIR=/data/stacks/wa-categorizer
 cd "$DIR"
 
-echo "→ allineo il compose dal repo (se presente)"
+echo "-> syncing the compose from the repo (if present)"
 if [ -f app/deploy/dkct/compose.yaml ]; then
   cp app/deploy/dkct/compose.yaml compose.yaml
 else
-  echo "  (nessun clone del repo: uso il compose già presente)"
+  echo "   (no repo clone: using the compose already here)"
 fi
 
-echo "→ scarico l'ultima immagine"
+echo "-> pulling the latest image"
 docker compose pull
 
-echo "→ riavvio lo stack"
+echo "-> restarting the stack"
 docker compose up -d
 
-echo "→ stato"
+echo "-> status"
 docker compose ps
 
 echo
-echo "Fatto. I log:  docker compose logs -f wa-categorizer"
+echo "Done. Logs:  docker compose logs -f wa-categorizer"

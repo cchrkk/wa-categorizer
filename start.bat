@@ -5,28 +5,28 @@ cd /d "%~dp0"
 
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [ERRORE] Node.js non trovato nel PATH. Installa Node 20+ da https://nodejs.org
+  echo [ERROR] Node.js not found in PATH. Install Node 20+ from https://nodejs.org
   pause
   exit /b 1
 )
 
 if not exist ".env" (
-  echo [!] File .env assente: lo creo copiando .env.example
+  echo [!] No .env file: creating it from .env.example
   copy /y ".env.example" ".env" >nul
-  echo [!] Aprilo e compila i valori prima di andare in produzione.
+  echo [!] Open it and fill in the values before going to production.
 )
 
 if not exist "node_modules" (
-  echo [i] Installo le dipendenze...
+  echo [i] Installing dependencies...
   call npm install
   if errorlevel 1 (
-    echo [ERRORE] npm install fallito
+    echo [ERROR] npm install failed
     pause
     exit /b 1
   )
 )
 
-echo [i] Avvio wa-categorizer... (Ctrl+C per fermare)
+echo [i] Starting wa-categorizer... (Ctrl+C to stop)
 node src/index.js %*
 endlocal
 pause

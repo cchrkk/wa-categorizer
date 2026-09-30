@@ -1,0 +1,53 @@
+# ============================================================
+#  VOICE NOTES FROM ONE PERSON, ONLY IF THEY SAY CERTAIN THINGS
+#
+#  Transcription happens anyway (it is needed to filter), but the actions
+#  only run if one of the words appears in the transcript.
+#
+#  `mode: contains` = "contains one of these strings". No regex, no word
+#  boundaries, so it works with accented characters and has no traps.
+#  The flip side: "oro" would match inside "lavOro".
+# ============================================================
+
+rules:
+  - id: urgent-voice-notes-from-mario
+    name: "Mario — urgent voice notes"
+    priority: 90
+    enabled: false
+
+    match:
+      chatName: Mario
+      type: audio
+      textMatch:
+        mode: contains
+        patterns:
+          - urgent
+          - asap
+          - problem
+          - error
+          - call me back
+
+    transcribe: true
+
+    actions:
+      - type: notify.telegram
+        message: "🚨 {{sender}}: {{transcript}}"
+      - type: ha.notify
+        service: mobile_app_my_phone
+        title: "Urgent from {{sender}}"
+        message: "{{transcript}}"
+
+    # ------------------------------------------------------------
+    # WILDCARD VARIANT: also catches derived words
+    # ("super urgent", "a small problem", "errors").
+    #
+    #   textMatch:
+    #     mode: regex
+    #     flags: iu
+    #     patterns:
+    #       - '(?<![\p{L}\p{N}])(urgent\w*|problem\w*|error\w*)(?![\p{L}\p{N}])'
+    #
+    # `flags: iu` is required for Unicode boundaries: `\b` on its own only
+    # knows [A-Za-z0-9_] and does not recognise accented letters, so
+    # '\b(città)\b' would never match. `npm run check` warns you about it.
+    # ------------------------------------------------------------

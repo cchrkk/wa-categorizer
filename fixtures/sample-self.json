@@ -1,10 +1,10 @@
 {
-  "_nota": "Esempio di messaggio che ti mandi da solo. Il jid è finto: per provarlo davvero usa il TUO (npm run contacts) e salva il file in data/, che è ignorato da git.",
+  "_note": "Example of a message you send to yourself. The jid is fake: to really test it use YOURS (npm run contacts) and save the file under data/, which git ignores.",
   "chatJid": "223344556677889@lid",
   "chatName": "Mario R.",
   "senderJid": "223344556677889@lid",
   "senderName": "Mario R.",
   "fromMe": true,
   "type": "text",
-  "text": "prova nota a me stesso"
+  "text": "test note to myself"
 }

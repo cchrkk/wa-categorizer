@@ -1,40 +1,40 @@
-// Smoke test del pannello web: avvia il server su una porta di prova, lavorando
-// su una COPIA delle regole (il file vero non viene toccato), esercita gli
-// endpoint e stampa PASS/FAIL. Esce con codice 1 se qualcosa fallisce.
+// Smoke test for the web panel: starts the server on a test port working on a
+// COPY of the rules (the real file is never touched), exercises the endpoints
+// and prints PASS/FAIL. Exits with code 1 if anything fails.
 //
 //   node tools/web-smoke.mjs
 //
-// Se OPENAI_API_KEY è configurata prova anche la trascrizione di un vocale.
+// If OPENAI_API_KEY is configured, it also tests transcribing a voice note.
 import fs from 'node:fs';
 import path from 'node:path';
 import { paths, loadConfig } from '../src/config.js';
 import { startWeb } from '../src/web.js';
 
 const PORT = Number(process.env.SMOKE_PORT || 8199);
-const TOKEN = 'token-di-prova';
+const TOKEN = 'smoke-test-token';
 const base = `http://127.0.0.1:${PORT}`;
 const H = { Authorization: `Bearer ${TOKEN}` };
 
-let falliti = 0;
-async function check(nome, fn) {
+let failed = 0;
+async function check(name, fn) {
   try {
     await fn();
-    console.log(`  ✓ ${nome}`);
+    console.log(`  ✓ ${name}`);
   } catch (err) {
-    falliti += 1;
-    console.log(`  ✗ ${nome}\n      ${err.message}`);
+    failed += 1;
+    console.log(`  ✗ ${name}\n      ${err.message}`);
   }
 }
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
-// --- si lavora su una copia: il file vero non si tocca mai ---
+// --- everything happens on a copy: the real file is never touched ---
 const dir = path.join(paths.data, 'out', 'smoke');
 fs.mkdirSync(dir, { recursive: true });
-const regole = path.join(dir, 'rules.smoke.yaml');
-fs.copyFileSync(path.join(paths.root, 'config', 'rules.example.yaml'), regole);
-paths.rulesFile = regole;
+const rules = path.join(dir, 'rules.smoke.yaml');
+fs.copyFileSync(path.join(paths.root, 'config', 'rules.example.yaml'), rules);
+paths.rulesFile = rules;
 
 let config = loadConfig();
 const web = await startWeb({
@@ -51,113 +51,113 @@ const web = await startWeb({
 const j = async (r) => ({ status: r.status, body: await r.json() });
 
 try {
-  console.log(`\npannello su ${base}\n`);
+  console.log(`\npanel on ${base}\n`);
 
-  await check('GET / serve la pagina', async () => {
+  await check('GET / serves the page', async () => {
     const r = await fetch(`${base}/`);
     const t = await r.text();
     assert(r.status === 200, `status ${r.status}`);
-    assert(t.includes('wa-categorizer'), 'la pagina non contiene il titolo');
+    assert(t.includes('wa-categorizer'), 'the page does not contain the title');
   });
 
-  await check('senza token risponde 401', async () => {
+  await check('without a token it answers 401', async () => {
     const { status } = await j(await fetch(`${base}/api/state`));
     assert(status === 401, `status ${status}`);
   });
 
-  await check('GET /api/state elenca le regole', async () => {
+  await check('GET /api/state lists the rules', async () => {
     const { status, body } = await j(await fetch(`${base}/api/state`, { headers: H }));
     assert(status === 200, `status ${status}`);
-    assert(Array.isArray(body.rules), 'manca rules');
-    assert(body.rules.length > 0, 'nessuna regola caricata');
-    assert(typeof body.yaml === 'string' && body.yaml.length > 0, 'yaml vuoto');
+    assert(Array.isArray(body.rules), 'rules missing');
+    assert(body.rules.length > 0, 'no rules loaded');
+    assert(typeof body.yaml === 'string' && body.yaml.length > 0, 'empty yaml');
   });
 
-  await check('POST /api/test spiega il match', async () => {
+  await check('POST /api/test explains the match', async () => {
     const { status, body } = await j(await fetch(`${base}/api/test`, {
       method: 'POST',
       headers: { ...H, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatName: 'Ordini', senderName: 'Mario', text: 'servono 3 casse di rosso', type: 'text' }),
+      body: JSON.stringify({ chatName: 'Orders', senderName: 'Mario', text: 'we need 3 boxes of red', type: 'text' }),
     }));
     assert(status === 200, `status ${status}`);
-    assert(Array.isArray(body.rules), 'manca la diagnostica per regola');
-    assert(body.rules.every((r) => Array.isArray(r.failed)), 'manca il campo failed');
-    assert(body.matched.length > 0, 'nessuna regola attivata su un ordine evidente');
+    assert(Array.isArray(body.rules), 'per-rule diagnostics missing');
+    assert(body.rules.every((r) => Array.isArray(r.failed)), 'the failed field is missing');
+    assert(body.matched.length > 0, 'no rule fired on an obvious order');
   });
 
-  await check('POST /api/test dice quale criterio fallisce', async () => {
+  await check('POST /api/test reports which criterion failed', async () => {
     const { body } = await j(await fetch(`${base}/api/test`, {
       method: 'POST',
       headers: { ...H, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatName: 'Chat sbagliata', text: 'ciao', type: 'text' }),
+      body: JSON.stringify({ chatName: 'Wrong chat', text: 'hello', type: 'text' }),
     }));
-    const conFallimenti = body.rules.filter((r) => !r.matched && r.failed.length > 0);
-    assert(conFallimenti.length > 0, 'nessuna regola riporta i criteri falliti');
-    assert(body.matched.length === 0, 'non doveva attivare niente');
+    const withFailures = body.rules.filter((r) => !r.matched && r.failed.length > 0);
+    assert(withFailures.length > 0, 'no rule reports failed criteria');
+    assert(body.matched.length === 0, 'nothing should have fired');
   });
 
-  await check('PUT /api/rules RIFIUTA yaml rotto e non tocca il file', async () => {
-    const prima = fs.readFileSync(regole, 'utf8');
+  await check('PUT /api/rules REFUSES broken yaml and does not touch the file', async () => {
+    const before = fs.readFileSync(rules, 'utf8');
     const { status, body } = await j(await fetch(`${base}/api/rules`, {
       method: 'PUT',
       headers: { ...H, 'Content-Type': 'application/json' },
       body: JSON.stringify({ yaml: 'rules:\n  - id: x\n  zz: 1\n  zz: 2\n' }),
     }));
-    assert(status === 400, `doveva rifiutare, status ${status}`);
-    assert(/valido|unique|keys/i.test(body.error || ''), `errore poco chiaro: ${body.error}`);
-    assert(fs.readFileSync(regole, 'utf8') === prima, 'il file su disco è cambiato!');
+    assert(status === 400, `it should have refused, status ${status}`);
+    assert(/valid|unique|keys/i.test(body.error || ''), `unclear error: ${body.error}`);
+    assert(fs.readFileSync(rules, 'utf8') === before, 'the file on disk changed!');
   });
 
-  await check('GET /editor.js serve il modulo dell editor', async () => {
+  await check('GET /editor.js serves the editor module', async () => {
     const r = await fetch(`${base}/editor.js`);
     const t = await r.text();
     assert(r.status === 200, `status ${r.status}`);
-    assert(t.includes('export function highlight'), 'il modulo non è quello giusto');
+    assert(t.includes('export function highlight'), 'that is not the right module');
   });
 
-  await check('PUT /api/rules con dryRun valida e NON scrive', async () => {
-    const prima = fs.readFileSync(regole, 'utf8');
+  await check('PUT /api/rules with dryRun validates and does NOT write', async () => {
+    const before = fs.readFileSync(rules, 'utf8');
     const { status, body } = await j(await fetch(`${base}/api/rules`, {
       method: 'PUT',
       headers: { ...H, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ yaml: prima, dryRun: true }),
+      body: JSON.stringify({ yaml: before, dryRun: true }),
     }));
     assert(status === 200, `status ${status}`);
-    assert(body.validated === true, 'non ha segnalato la validazione');
-    assert(fs.readFileSync(regole, 'utf8') === prima, 'ha scritto nonostante dryRun');
+    assert(body.validated === true, 'it did not report the validation');
+    assert(fs.readFileSync(rules, 'utf8') === before, 'it wrote despite dryRun');
   });
 
-  await check('PUT /api/rules accetta yaml valido', async () => {
-    const buono = fs.readFileSync(regole, 'utf8');
+  await check('PUT /api/rules accepts valid yaml', async () => {
+    const good = fs.readFileSync(rules, 'utf8');
     const { status, body } = await j(await fetch(`${base}/api/rules`, {
       method: 'PUT',
       headers: { ...H, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ yaml: buono }),
+      body: JSON.stringify({ yaml: good }),
     }));
     assert(status === 200, `status ${status}: ${body.error || ''}`);
-    assert(body.rules > 0, 'nessuna regola attiva dopo il salvataggio');
+    assert(body.rules > 0, 'no rules active after saving');
   });
 
   if (process.env.OPENAI_API_KEY) {
-    await check('POST /api/test-audio trascrive un vocale', async () => {
-      const audio = path.join(paths.data, 'samples', 'nota.ogg');
-      assert(fs.existsSync(audio), `serve ${audio} (crealo con tools/make-sample-audio.ps1)`);
-      const r = await fetch(`${base}/api/test-audio?chatName=Ordini&senderName=Mario&ext=ogg`, {
+    await check('POST /api/test-audio transcribes a voice note', async () => {
+      const audio = path.join(paths.data, 'samples', 'note.ogg');
+      assert(fs.existsSync(audio), `${audio} is missing (create it with tools/make-sample-audio.ps1)`);
+      const r = await fetch(`${base}/api/test-audio?chatName=Orders&senderName=Mario&ext=ogg`, {
         method: 'POST', headers: { ...H, 'Content-Type': 'application/octet-stream' },
         body: fs.readFileSync(audio),
       });
       const body = await r.json();
       assert(r.status === 200, `status ${r.status}: ${body.error || ''}`);
-      assert(body.transcript && body.transcript.length > 5, `trascrizione vuota: ${JSON.stringify(body.transcript)}`);
+      assert(body.transcript && body.transcript.length > 5, `empty transcript: ${JSON.stringify(body.transcript)}`);
       console.log(`      → "${body.transcript}"`);
     });
   } else {
-    console.log('  · salto la prova del vocale (OPENAI_API_KEY non configurata)');
+    console.log('  · skipping the voice note test (OPENAI_API_KEY not configured)');
   }
 } finally {
   web.close();
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
-console.log(falliti ? `\n✗ ${falliti} test falliti\n` : '\n✓ pannello web ok\n');
-process.exit(falliti ? 1 : 0);
+console.log(failed ? `\n✗ ${failed} tests failed\n` : '\n✓ web panel ok\n');
+process.exit(failed ? 1 : 0);

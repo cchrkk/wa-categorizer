@@ -1,148 +1,149 @@
-// Test della logica dell'editor (src/web/editor.js). Non serve un browser:
-// evidenziazione, rientro e rientro automatico sono funzioni pure.
+// Tests for the editor logic (src/web/editor.js). No browser needed:
+// highlighting, indentation and auto-indent are pure functions.
 //
 //   node tools/editor-test.mjs
 import { highlight, indentBlock, autoIndentRiga } from '../src/web/editor.js';
 
-let falliti = 0;
-function check(nome, fn) {
+let failed = 0;
+function check(name, fn) {
   try {
     fn();
-    console.log(`  ✓ ${nome}`);
+    console.log(`  ✓ ${name}`);
   } catch (err) {
-    falliti += 1;
-    console.log(`  ✗ ${nome}\n      ${err.message}`);
+    failed += 1;
+    console.log(`  ✗ ${name}\n      ${err.message}`);
   }
 }
-function eq(avuto, atteso, msg = '') {
-  if (avuto !== atteso) {
-    throw new Error(`${msg}\n      atteso: ${JSON.stringify(atteso)}\n      avuto : ${JSON.stringify(avuto)}`);
+function eq(actual, expected, msg = '') {
+  if (actual !== expected) {
+    throw new Error(`${msg}\n      expected: ${JSON.stringify(expected)}\n      actual  : ${JSON.stringify(actual)}`);
   }
 }
 function ok(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
-console.log('\nevidnziazione YAML\n'.replace('evidnziazione', 'evidenziazione'));
+console.log('\nYAML highlighting\n');
 
-check('chiave, valore e commento finiscono in span distinti', () => {
-  const { html } = highlight('nome: valore  # nota');
-  ok(html.includes('<span class="t-key">nome</span>'), 'manca la chiave');
-  ok(html.includes('<span class="t-com"># nota</span>'), 'manca il commento');
+check('key, value and comment end up in distinct spans', () => {
+  const { html } = highlight('name: value  # note');
+  ok(html.includes('<span class="t-key">name</span>'), 'the key is missing');
+  ok(html.includes('<span class="t-com"># note</span>'), 'the comment is missing');
 });
 
-check('booleani, numeri e segnaposto', () => {
+check('booleans, numbers and placeholders', () => {
   const { html } = highlight('a: true\nb: 42\nc: "{{transcript}}"');
-  ok(html.includes('<span class="t-num">true</span>'), 'manca il booleano');
-  ok(html.includes('<span class="t-num">42</span>'), 'manca il numero');
-  // le virgolette vengono escapate in &quot;, quindi non si confronta il testo grezzo
-  ok(/<span class="t-str">[^<]*\{\{transcript\}\}[^<]*<\/span>/.test(html), 'manca la stringa col segnaposto');
+  ok(html.includes('<span class="t-num">true</span>'), 'the boolean is missing');
+  ok(html.includes('<span class="t-num">42</span>'), 'the number is missing');
+  // quotes are escaped to &quot;, so the raw text is not compared
+  ok(/<span class="t-str">[^<]*\{\{transcript\}\}[^<]*<\/span>/.test(html), 'the string with the placeholder is missing');
 });
 
-check('un # dentro una stringa NON è un commento', () => {
-  const { html } = highlight(`a: 'valore #non commento'`);
-  ok(html.includes('t-str'), 'la stringa non è stata riconosciuta');
-  ok(!html.includes('t-com'), 'ha scambiato il # per un commento');
+check('a # inside a string is NOT a comment', () => {
+  const { html } = highlight(`a: 'value #not a comment'`);
+  ok(html.includes('t-str'), 'the string was not recognised');
+  ok(!html.includes('t-com'), 'it mistook the # for a comment');
 });
 
-check('la voce di lista ha il dash colorato', () => {
+check('a list item has a highlighted dash', () => {
   const { html } = highlight('rules:\n  - id: x');
-  ok(html.includes('<span class="t-dash">-</span>'), 'manca il dash');
-  ok(html.includes('<span class="t-key">id</span>'), 'manca la chiave della voce');
+  ok(html.includes('<span class="t-dash">-</span>'), 'the dash is missing');
+  ok(html.includes('<span class="t-key">id</span>'), 'the item key is missing');
 });
 
-check('i blocchi | sono trattati come stringhe', () => {
-  const { html } = highlight('message: |\n  riga uno\n  riga due\nnext: 1');
-  // i <div> non hanno separatori fra loro: si spezza sulla chiusura
-  const dentro = html.split('</div>');
-  ok(dentro[1].includes('t-block'), 'la prima riga del blocco non è colorata come stringa');
-  ok(dentro[2].includes('t-block'), 'la seconda riga del blocco non è colorata come stringa');
-  ok(dentro[3].includes('t-key'), 'la riga dopo il blocco non è tornata normale');
+check('| blocks are treated as strings', () => {
+  const { html } = highlight('message: |\n  line one\n  line two\nnext: 1');
+  // the <div>s have no separators between them: split on the closing tag
+  const inside = html.split('</div>');
+  ok(inside[1].includes('t-block'), 'the first line of the block is not coloured as a string');
+  ok(inside[2].includes('t-block'), 'the second line of the block is not coloured as a string');
+  ok(inside[3].includes('t-key'), 'the line after the block did not go back to normal');
 });
 
-check('fra i blocchi NON ci sono ritorni a capo', () => {
-  // un \n fra due div dentro un pre-wrap crea una riga vuota in più e
-  // disallinea le due copie: è il bug che faceva scorrere la selezione
+check('there are NO newlines between the blocks', () => {
+  // a \n between two divs inside a pre-wrap container adds an extra empty
+  // line and desynchronises the two copies: that was the bug that made the
+  // selection scroll out of place
   const { html } = highlight('a: 1\nb: 2\nc: 3');
-  ok(!html.includes('\n'), 'c\'è un ritorno a capo fra i blocchi');
+  ok(!html.includes('\n'), 'there is a newline between the blocks');
 });
 
-check('il commento intero è riconosciuto anche indentato', () => {
-  const { html } = highlight('    # solo un commento');
-  ok(html.includes('<span class="t-com"># solo un commento</span>'), 'commento non riconosciuto');
+check('a full-line comment is recognised even when indented', () => {
+  const { html } = highlight('    # just a comment');
+  ok(html.includes('<span class="t-com"># just a comment</span>'), 'comment not recognised');
 });
 
-check('l HTML viene neutralizzato, niente injection', () => {
+check('HTML is neutralised, no injection', () => {
   const { html } = highlight('a: "<img src=x onerror=alert(1)>"');
-  ok(!html.includes('<img'), 'il tag è passato grezzo');
-  ok(html.includes('&lt;img'), 'non è stato escapato');
+  ok(!html.includes('<img'), 'the tag went through raw');
+  ok(html.includes('&lt;img'), 'it was not escaped');
 });
 
-check('i numeri di riga seguono le righe', () => {
+check('line numbers follow the lines', () => {
   const { gutter } = highlight('a: 1\nb: 2\nc: 3');
   eq(gutter, '1\n2\n3');
 });
 
-console.log('\nrientro con Tab\n');
+console.log('\nTab indentation\n');
 
-check('Tab aggiunge due spazi', () => {
-  const r = indentBlock('nome: valore', 0, 0, 1);
-  eq(r.testo, '  nome: valore');
+check('Tab adds two spaces', () => {
+  const r = indentBlock('name: value', 0, 0, 1);
+  eq(r.testo, '  name: value');
 });
 
-check('il cursore si sposta con il testo', () => {
-  const r = indentBlock('nome: valore', 5, 5, 1);
-  eq(r.testo, '  nome: valore');
-  eq(r.da, 7, 'il cursore non è rimasto dov\'era');
+check('the caret moves with the text', () => {
+  const r = indentBlock('name: value', 5, 5, 1);
+  eq(r.testo, '  name: value');
+  eq(r.da, 7, 'the caret did not stay where it was');
 });
 
-check('Shift+Tab toglie il rientro', () => {
-  const r = indentBlock('    nome: valore', 6, 6, -1);
-  eq(r.testo, '  nome: valore');
+check('Shift+Tab removes the indentation', () => {
+  const r = indentBlock('    name: value', 6, 6, -1);
+  eq(r.testo, '  name: value');
 });
 
-check('Shift+Tab su riga non indentata non cambia niente', () => {
-  eq(indentBlock('nome: valore', 0, 0, -1), null);
+check('Shift+Tab on an unindented line changes nothing', () => {
+  eq(indentBlock('name: value', 0, 0, -1), null);
 });
 
-check('con più righe selezionate le indenta tutte', () => {
-  const testo = 'a: 1\nb: 2\nc: 3';
-  const r = indentBlock(testo, 0, testo.length, 1);
+check('with several lines selected it indents them all', () => {
+  const text = 'a: 1\nb: 2\nc: 3';
+  const r = indentBlock(text, 0, text.length, 1);
   eq(r.testo, '  a: 1\n  b: 2\n  c: 3');
   eq(r.da, 0);
-  eq(r.a, r.testo.length, 'la selezione non copre il blocco');
+  eq(r.a, r.testo.length, 'the selection does not cover the block');
 });
 
-check('se la selezione finisce a inizio riga, quella riga non si tocca', () => {
-  const testo = 'a: 1\nb: 2\nc: 3';
-  const r = indentBlock(testo, 0, 5, 1); // selezione = "a: 1\n"
+check('if the selection ends at a line start, that line is untouched', () => {
+  const text = 'a: 1\nb: 2\nc: 3';
+  const r = indentBlock(text, 0, 5, 1); // selection = "a: 1\n"
   eq(r.testo, '  a: 1\nb: 2\nc: 3');
 });
 
-check('le righe vuote non vengono indentate', () => {
+check('empty lines are not indented', () => {
   const r = indentBlock('a: 1\n\nb: 2', 0, 10, 1);
   eq(r.testo, '  a: 1\n\n  b: 2');
 });
 
-check('con più righe selezionate toglie il rientro a tutte', () => {
-  const testo = '  a: 1\n  b: 2';
-  const r = indentBlock(testo, 0, testo.length, -1);
+check('with several lines selected it unindents them all', () => {
+  const text = '  a: 1\n  b: 2';
+  const r = indentBlock(text, 0, text.length, -1);
   eq(r.testo, 'a: 1\nb: 2');
 });
 
-console.log('\nrientro automatico sull\'Invio\n');
+console.log('\nauto-indent on Enter\n');
 
-check('dopo una chiave scende di due spazi', () => {
+check('after a key it goes down two spaces', () => {
   eq(autoIndentRiga('  match:'), '    ');
 });
 
-check('dopo una voce di lista resta allo stesso livello', () => {
+check('after a list item it stays at the same level', () => {
   eq(autoIndentRiga('  - id: x'), '  ');
 });
 
-check('dentro un blocco | mantiene lo stesso rientro', () => {
-  eq(autoIndentRiga('    testo normale'), '    ');
+check('inside a | block it keeps the same indentation', () => {
+  eq(autoIndentRiga('    normal text'), '    ');
 });
 
-console.log(falliti ? `\n✗ ${falliti} test falliti\n` : '\n✓ editor ok\n');
-process.exit(falliti ? 1 : 0);
+console.log(failed ? `\n✗ ${failed} tests failed\n` : '\n✓ editor ok\n');
+process.exit(failed ? 1 : 0);

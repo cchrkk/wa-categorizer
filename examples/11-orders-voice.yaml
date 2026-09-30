@@ -1,0 +1,53 @@
+# ============================================================
+#  ORDERS CHAT: VOICE NOTES
+#
+#  Identical to example 10, but for voice notes. Two differences that
+#  matter:
+#
+#    1. `type: audio` instead of `text`
+#    2. `transcribe: true`, and the actions use {{transcript}}
+#
+#  And one trap: the pattern must NOT demand a digit in front of the
+#  keyword. The transcript spells numbers out — "we need three boxes",
+#  not "we need 3 boxes" — so '\d+\s*(boxes)' would never match.
+# ============================================================
+
+rules:
+  - id: orders-voice
+    name: "Orders — voice notes with keywords"
+    priority: 11
+    enabled: false
+
+    match:
+      chatName: Orders
+      type: audio
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          - '(?<![\p{L}\p{N}])(boxes|cartons|bottles|pallets|kg|bring\w*)(?![\p{L}\p{N}])'
+
+    transcribe: true
+
+    actions:
+      - type: appendJsonl
+        file: data/orders.jsonl
+      - type: notify.telegram
+        message: |
+          🎙️ Voice order in {{chat}} from {{sender}}:
+          {{transcript}}
+
+    # `bring\w*` catches "bring", "bringing", "brought"... handy because
+    # orders spoken aloud often use the verb. The flip side: it also
+    # catches "briefcase". If that bothers you, list the forms you need:
+    #   bring|bringing|brings
+    #
+    # NOTE on capture groups: the parentheses above are plain grouping, so
+    # they do not create placeholders. If you use (?<name>...) you can
+    # reuse the word in the actions:
+    #   entityId: "light.{{room}}"
+    # See example 06.
+
+    # TO TEST IT without recording a voice note, drag an audio file into
+    # the web panel's test bench. Or from the command line:
+    #   node tools/try-transcript.mjs "we need three boxes of red" "Orders" "Mario"

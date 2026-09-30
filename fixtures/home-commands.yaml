@@ -1,0 +1,61 @@
+# Test rules for the home commands. In real use you would match on
+# `senderJid: "@me"`; here we match on the chat name so the test does not
+# depend on the contact book.
+#
+#   node tools/mock-ha.mjs 8199
+#   HA_URL=http://127.0.0.1:8199 HA_TOKEN=test \
+#     node src/index.js --simulate fixtures/home.json \
+#     --config fixtures/home-commands.yaml --live
+
+settings:
+  transcribeAudio: false
+  logMessages: false
+  processOwnMessages: true
+  mediaRetentionDays: -1
+
+rules:
+  - id: home-turn-on-light
+    name: "Home — turn on the <room> light"
+    priority: 5
+    enabled: true
+
+    match:
+      chatName: Home
+      type: [text, audio]
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          - '(?<![\p{L}\p{N}])turn on the (?<room>[\p{L} ]+?) light(?![\p{L}\p{N}])'
+
+    transcribe: true
+
+    actions:
+      - type: ha.action
+        entityId: "light.{{room}}"
+        action: turn_on
+      - type: notify.console
+        message: "💡 on: light.{{room}}"
+
+  - id: home-turn-off-light
+    name: "Home — turn off the <room> light"
+    priority: 6
+    enabled: true
+
+    match:
+      chatName: Home
+      type: [text, audio]
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          - '(?<![\p{L}\p{N}])(?:turn off|switch off) the (?<room>[\p{L} ]+?) light(?![\p{L}\p{N}])'
+
+    transcribe: true
+
+    actions:
+      - type: ha.action
+        entityId: "light.{{room}}"
+        action: turn_off
+      - type: notify.console
+        message: "🌑 off: light.{{room}}"

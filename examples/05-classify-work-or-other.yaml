@@ -1,0 +1,66 @@
+# ============================================================
+#  CLASSIFICATION: THE LLM DECIDES WHAT IT IS ABOUT
+#
+#  Two rules on the same message: the first one that passes its
+#  classifier wins. If the first is rejected, the next is tried — that is
+#  how "work" and "chatter" end up in different places instead of all
+#  together.
+#
+#  Requires OPENAI_API_KEY in .env. With Groq: openai/gpt-oss-120b.
+#  Every message reaching one of these rules costs one API call.
+# ============================================================
+
+rules:
+  - id: voice-work
+    name: "Mario — work voice notes"
+    priority: 80
+    enabled: false
+
+    match:
+      chatName: Mario
+      type: audio
+
+    transcribe: true
+    classify:
+      labels: [work]
+      minConfidence: 0.7
+      model: openai/gpt-oss-120b
+
+    actions:
+      - type: notify.telegram
+        message: "💼 *{{label}}* ({{confidence}})\n{{transcript}}"
+      - type: appendJsonl
+        file: data/work.jsonl
+
+  - id: voice-not-work
+    name: "Mario — everything else"
+    priority: 81
+    enabled: false
+
+    match:
+      chatName: Mario
+      type: audio
+
+    transcribe: true
+    classify:
+      labels: [chatter, spam]
+      minConfidence: 0.7
+      model: openai/gpt-oss-120b
+
+    actions:
+      - type: appendJsonl
+        file: data/chatter.jsonl
+
+    # ------------------------------------------------------------
+    # HOW THE FILTER BEHAVES
+    #
+    # - if the label is not among the listed ones, the rule does not fire
+    # - if confidence is below minConfidence, it does not fire either
+    # - if the LLM CALL FAILS (network, quota, wrong model), the rule
+    #   DOES NOT filter: a false positive is better than a lost order.
+    #   The log says "classification failed".
+    # - {{label}} and {{confidence}} are available in the actions
+    #
+    # Use `labels: [order, spam, chatter]` on a single rule if you just
+    # want to tag everything and read the label, instead of routing.
+    # ------------------------------------------------------------

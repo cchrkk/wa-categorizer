@@ -1,0 +1,44 @@
+# ============================================================
+#  DOCUMENTS AND ATTACHMENTS RECEIVED
+#
+#  PDFs, quotes, invoices: whatever arrives as a file.
+#  {{fileName}} is the file name, {{content}} is the caption written
+#  together with the attachment.
+#
+#  The file itself is NOT downloaded here: only metadata flows through
+#  (name, sender, caption), enough to notify or archive.
+# ============================================================
+
+rules:
+  - id: received-documents
+    name: "Received documents"
+    priority: 95
+    enabled: false
+
+    match:
+      chatName: Supplier
+      type: document
+
+    actions:
+      - type: notify.telegram
+        message: |
+          📄 *{{fileName}}* from {{sender}} ({{chat}})
+          {{content}}
+      - type: appendJsonl
+        file: data/documents.jsonl
+
+    # Only PDFs, if other things also arrive from that chat:
+    #   mediaMimetype: application/pdf
+    #
+    # Images only (photos, screenshots):
+    #   type: image
+    #
+    # All media together, no distinction:
+    #   type: media
+    #
+    # Everything that is neither text nor voice:
+    #   type: [image, video, document, sticker]
+    #
+    # Note: an attachment arrives as a separate message from the caption
+    # in some clients. If the caption is what you need, match on
+    # `type: text` as well.

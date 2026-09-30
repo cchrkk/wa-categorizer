@@ -1,13 +1,13 @@
 # ==============================================================
-#  wa-categorizer — stack Docker "generico"
+#  wa-categorizer — generic Docker stack
 #
-#  Per un host qualsiasi: costruisce l'immagine da questo repo.
-#  Su dkct NON si usa questo file (vedi deploy/dkct/): lì il build via
-#  Dockhand non funziona e serve `deploy/dkct/compose.yaml`.
+#  For any host: it builds the image from this repository.
+#  On hosts where the Docker agent cannot build (read-only /root), use a
+#  prebuilt image instead — see docs/install.md.
 #
-#  L'app NON ascolta su nessuna porta, a parte il pannello web se lo accendi.
-#  Niente `ports:` per il resto: Docker bypassa UFW, quindi non pubblicare
-#  nulla è la difesa più semplice.
+#  The app listens on no port, except the web panel if you turn it on.
+#  Keep it that way: Docker bypasses UFW, so publishing nothing is the
+#  simplest defence.
 # ==============================================================
 
 services:
@@ -18,8 +18,8 @@ services:
     container_name: wa-categorizer
     restart: unless-stopped
 
-    # Ha già tini come entrypoint: i segnali arrivano a node e il salvataggio
-    # su disco (regole, rubrica, stato) va a termine.
+    # tini is already the image entrypoint: signals reach node, so rules,
+    # contacts and state are saved before the process exits.
     stop_grace_period: 20s
 
     env_file:
@@ -32,16 +32,16 @@ services:
       LOG_LEVEL: info
       WEB_BIND: 0.0.0.0
 
-    # Pannello web: apri questa porta solo se WEB_ENABLED=true.
-    #   127.0.0.1  solo questa macchina (default, sicuro)
-    #   0.0.0.0    visibile sulla LAN
+    # Web panel: open this port only if WEB_ENABLED=true.
+    #   127.0.0.1  this machine only (default, safe)
+    #   0.0.0.0    reachable on the LAN
     ports:
       - "${WEB_PUBLISH_IP:-127.0.0.1}:${WEB_PORT:-8099}:${WEB_PORT:-8099}"
 
     volumes:
-      # sessione WhatsApp, log, media, rubrica
+      # WhatsApp session, logs, media, contacts
       - wa-data:/app/data
-      # regole fuori dall'immagine: ricarica a caldo, niente rebuild
+      # rules stay outside the image: edit and reload, no rebuild
       - ./config:/app/config
 
     logging:

@@ -1,17 +1,17 @@
 # ==============================================================
-#  wa-categorizer su dkct — vive in /data/stacks/wa-categorizer/
+#  wa-categorizer on dkct — lives in /data/stacks/wa-categorizer/
 #
-#  Layout sul server:
+#  Layout on the server:
 #    /data/stacks/wa-categorizer/
-#    ├─ compose.yaml   questo file (modificabile dal pannello di Dockhand)
-#    ├─ .env           SOLO segreti — vedi sotto
-#    ├─ config/        rules.yaml, bind-montato: si ricarica a caldo
-#    └─ data/          sessione WhatsApp, log, media, rubrica
+#    ├─ compose.yaml   this file (editable from the Dockhand panel)
+#    ├─ .env           SECRETS ONLY — see below
+#    ├─ config/        rules.yaml, bind-mounted: reloads live
+#    └─ data/          WhatsApp session, logs, media, contacts
 #
-#  Perché non c'è un `build:`: l'agent Hawser di dkct gira con
-#  ProtectHome=true (vedi la sua unit systemd), quindi /root è read-only e
-#  buildx non riesce a creare /root/.docker. Il `pull` invece funziona.
-#  Quindi l'immagine arriva già costruita da GitHub Actions su GHCR.
+#  Why there is no `build:` here: the Hawser agent on this host runs with
+#  ProtectHome=true (see its systemd unit), so /root is read-only and buildx
+#  cannot create /root/.docker. `pull` works fine. The image therefore
+#  arrives prebuilt from GitHub Actions via GHCR.
 # ==============================================================
 
 services:
@@ -21,17 +21,17 @@ services:
     container_name: wa-categorizer
     restart: unless-stopped
 
-    # tini è già l'entrypoint dell'immagine: i segnali arrivano a node e il
-    # salvataggio di rubrica, stato e regole va a termine prima di uscire.
+    # tini is already the image entrypoint: signals reach node, so rules,
+    # contacts and state are saved before the process exits.
     stop_grace_period: 20s
 
-    # --- segreti: restano nel .env, accanto a questo file ---
+    # --- secrets: they stay in .env, next to this file ---
     #     OPENAI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, HA_TOKEN,
-    #     WEB_TOKEN, HA_URL (indirizzo interno)
+    #     WEB_TOKEN, HA_URL (an internal address)
     env_file:
       - .env
 
-    # --- tutto il resto qui: così è visibile e modificabile da Dockhand ---
+    # --- everything else here: visible and editable from Dockhand ---
     environment:
       DATA_DIR: /app/data
       AUTH_DIR: /app/data/auth
@@ -39,37 +39,35 @@ services:
       LOG_PRETTY: "false"
       LOG_LEVEL: info
 
-      # trascrizione (la chiave sta nel .env)
+      # transcription (the key lives in .env)
       TRANSCRIBE_BACKEND: openai
       OPENAI_BASE_URL: https://api.groq.com/openai/v1
       OPENAI_TRANSCRIBE_MODEL: whisper-large-v3-turbo
       OPENAI_CLASSIFY_MODEL: openai/gpt-oss-120b
       TRANSCRIBE_LANGUAGE: it
 
-      # pannello web. Il processo gira sempre: quello che si accende e si
-      # spegne e' dove si pubblica la porta (WEB_PUBLISH_IP nel .env), non
-      # questa riga. Cosi' "spento" significa davvero irraggiungibile dalla
-      # LAN, invece di una porta aperta con niente dietro.
+      # web panel. The process always runs: what you switch on and off is
+      # where the port is published (the `ports:` line below), not this.
       WEB_ENABLED: "true"
       WEB_BIND: 0.0.0.0
 
-    # --- L'INTERRUTTORE DEL PANNELLO ---
-    # Cambia 0.0.0.0 in 127.0.0.1 qui sotto e premi "Save & redeploy":
-    #   0.0.0.0:8099:8099     visibile sulla LAN di ufficio
-    #   127.0.0.1:8099:8099   solo dentro dkct -> di fatto spento
-    # Docker bypassa UFW: quando e' su 0.0.0.0 l'unica cosa in mezzo e' il
-    # WEB_TOKEN nel .env. Non toglierlo.
+    # --- THE PANEL SWITCH ---
+    # Change 0.0.0.0 to 127.0.0.1 and press "Save & redeploy":
+    #   0.0.0.0:8099:8099     reachable on the office LAN
+    #   127.0.0.1:8099:8099   inside this host only -> effectively off
+    # Docker bypasses UFW: when it is 0.0.0.0 the only thing in the way is
+    # the WEB_TOKEN in .env. Do not remove it.
     #
-    # L'interruttore sta qui e non nel .env di proposito: il file env lo
-    # scrive Dockhand, quindi una modifica fatta via SSH verrebbe cancellata
-    # al primo deploy.
+    # The switch lives here and not in .env on purpose: the env file is
+    # written by the management panel, so an SSH edit would be wiped on the
+    # next deploy.
     ports:
       - "0.0.0.0:8099:8099"
 
     volumes:
-      # sessione WhatsApp + log + media + rubrica
+      # WhatsApp session, logs, media, contacts
       - ./data:/app/data
-      # regole fuori dall'immagine: ricarica a caldo, niente rebuild
+      # rules outside the image: reload live, no rebuild
       - ./config:/app/config
 
     logging:

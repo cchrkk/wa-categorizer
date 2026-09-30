@@ -1,36 +1,39 @@
-# Esempi di regole
+# Rule examples
 
-Un file per caso, ognuno indipendente e con un titolo che dice cosa fa.
+One file per use case, each self-contained, with a title that says what it does.
 
-**Come si usano:** copia il file che ti serve in `config/rules.d/` (o sul
-server, in `/data/stacks/wa-categorizer/config/rules.d/`), apri il file e metti
-`enabled: true`. Il programma li carica tutti insieme, in ordine alfabetico:
-non devi incollare niente dentro `rules.yaml`.
+**How to use them:** copy the file you need into `config/rules.d/` (or on the server,
+into `/data/stacks/wa-categorizer/config/rules.d/`), open it and set `enabled: true`.
+The program loads them all together in alphabetical order — there is nothing to paste
+into `rules.yaml`.
 
-Tutti gli esempi nascono **disattivati**, così copiarli non fa scattare nulla.
+Every example ships **disabled**, so copying them cannot make anything fire.
 
 ```bash
 mkdir -p config/rules.d
-cp examples/01-ogni-messaggio-da-una-persona.yaml config/rules.d/
-# poi nel file: enabled: true
+cp examples/01-every-message-from-a-person.yaml config/rules.d/
+# then in the file: enabled: true
 npm run check
 ```
 
-| File | Cosa fa |
+| File | What it does |
 |---|---|
-| [01-ogni-messaggio-da-una-persona](01-ogni-messaggio-da-una-persona.yaml) | Ogni **testo** da un contatto: niente filtri sul contenuto |
-| [02-ogni-vocale-da-una-persona](02-ogni-vocale-da-una-persona.yaml) | Ogni **vocale** da un contatto, trascritto |
-| [03-vocali-filtrati-per-parole-chiave](03-vocali-filtrati-per-parole-chiave.yaml) | Vocali, ma solo se dicono certe cose |
-| [04-vocali-in-un-gruppo](04-vocali-in-un-gruppo.yaml) | Vocali in un gruppo scelto per nome, filtrati |
-| [05-classificazione-lavoro-o-altro](05-classificazione-lavoro-o-altro.yaml) | L'LLM decide: lavoro / chiacchiere / spam |
-| [06-comandi-casa-home-assistant](06-comandi-casa-home-assistant.yaml) | «accendi luce cameretta» → `light.turn_on` |
-| [07-documenti-ricevuti](07-documenti-ricevuti.yaml) | PDF e allegati, con nome file |
-| [08-moderazione-link-nei-gruppi](08-moderazione-link-nei-gruppi.yaml) | Link nei gruppi → webhook |
-| [09-note-a-me-stesso](09-note-a-me-stesso.yaml) | Quello che scrivi tu, su Telegram o in un file |
-| [10-ordini-testo](10-ordini-testo.yaml) | Chat ordini: testi con una quantità |
-| [11-ordini-vocali](11-ordini-vocali.yaml) | Chat ordini: vocali, con le stesse parole chiave |
+| [01-every-message-from-a-person](01-every-message-from-a-person.yaml) | every **text** from one contact, no content filtering |
+| [02-every-voice-note-from-a-person](02-every-voice-note-from-a-person.yaml) | every **voice note** from one contact, transcribed |
+| [03-voice-notes-filtered-by-keywords](03-voice-notes-filtered-by-keywords.yaml) | voice notes, but only if they say certain things |
+| [04-voice-notes-in-a-group](04-voice-notes-in-a-group.yaml) | voice notes in a group chosen by name, filtered |
+| [05-classify-work-or-other](05-classify-work-or-other.yaml) | the LLM decides: work / chatter / spam |
+| [06-home-assistant-commands](06-home-assistant-commands.yaml) | "turn on the bedroom light" → `light.turn_on` |
+| [07-received-documents](07-received-documents.yaml) | PDFs and attachments, with the file name |
+| [08-moderate-links-in-groups](08-moderate-links-in-groups.yaml) | links in groups → webhook |
+| [09-notes-to-myself](09-notes-to-myself.yaml) | what you write yourself, to Telegram or a file |
+| [10-orders-text](10-orders-text.yaml) | orders chat: written messages with a quantity |
+| [11-orders-voice](11-orders-voice.yaml) | orders chat: voice notes, same keywords |
 
-Per capire **perché** una regola non scatta, usa il pannello web (campo di prova)
-o `node tools/prova-trascrizione.mjs "testo" "Nome chat" "Mittente"`.
+To understand **why** a rule did not fire, use the web panel's test bench, or:
 
-Riferimento completo di tutti i campi: [README](../README.md).
+```bash
+node tools/try-transcript.mjs "the transcript" "Chat name" "Sender"
+```
+
+Full reference for every field: [docs/rules.md](../docs/rules.md).

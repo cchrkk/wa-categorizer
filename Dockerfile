@@ -1,13 +1,15 @@
-# wa-categorizer — immagine di produzione
+# wa-categorizer — production image
 FROM node:22-alpine
 
-# ffmpeg serve solo al backend di trascrizione "command" (whisper locale).
-# Con il backend "openai" (Groq) si può togliere:  -RUN apk add --no-cache ffmpeg
+# ffmpeg is only needed by the "command" transcription backend (local
+# whisper). With the "openai" backend (Groq) you can drop this line and
+# save ~80 MB.
 RUN apk add --no-cache ffmpeg tini
 
 WORKDIR /app
 
-# Le dipendenze prima del codice: finché package*.json non cambia, il layer resta in cache
+# Dependencies before the code: as long as package*.json doesn't change,
+# this layer stays cached.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
@@ -19,14 +21,14 @@ COPY fixtures/ ./fixtures/
 COPY tools/ ./tools/
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# /app/data è la stessa cartella di DATA_DIR: così i percorsi relativi scritti
-# nelle regole ("data/ordini.jsonl") finiscono nel volume e non nel layer
-# dell'immagine, che si perde a ogni rebuild.
+# /app/data is the same folder as DATA_DIR: that way relative paths written
+# in the rules ("data/orders.jsonl") land in the volume instead of in the
+# image layer, which is lost on every rebuild.
 RUN chmod +x /usr/local/bin/entrypoint.sh \
     && mkdir -p /app/data \
     && chown -R node:node /app
 
-# Utente non privilegiato: l'app non ha bisogno di root
+# Unprivileged user: nothing here needs root
 USER node
 
 ENV NODE_ENV=production \

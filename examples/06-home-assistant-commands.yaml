@@ -1,0 +1,97 @@
+# ============================================================
+#  HOME COMMANDS WRITTEN TO YOURSELF
+#
+#  You write "turn on the bedroom light" (by voice or by text) and it calls
+#  light.turn_on on light.bedroom.
+#
+#  The word "bedroom" is taken from the message with a regex capture group,
+#  `(?<room>...)`, and reused in the action as {{room}}. Numbered
+#  placeholders work too: {{1}}, {{2}}...
+#
+#  REQUIRES in config/rules.yaml:
+#      settings:
+#        processOwnMessages: true
+#  without it your own messages are ignored before anything else.
+# ============================================================
+
+rules:
+  - id: home-turn-on-light
+    name: "Home — «turn on the <room> light»"
+    priority: 5
+    enabled: false
+
+    match:
+      senderJid: "@me"            # "@me" = your account, in any form
+      type: [text, audio]         # typed or spoken
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          # (?<room>[\p{L} ]+?) = one or more letters (accents included),
+          # lazy so it stops at the first useful match
+          # (?<![\p{L}\p{N}]) ... (?![\p{L}\p{N}]) = Unicode boundaries, so
+          # it does not catch "return on" nor a word glued to it
+          - '(?<![\p{L}\p{N}])turn on the (?<room>[\p{L} ]+?) light(?![\p{L}\p{N}])'
+
+    transcribe: true
+
+    actions:
+      - type: ha.action
+        entityId: "light.{{room}}"       # -> light.bedroom
+        action: turn_on
+      - type: notify.console
+        message: "💡 on: light.{{room}}"
+
+  - id: home-turn-off-light
+    name: "Home — «turn off the <room> light»"
+    priority: 6
+    enabled: false
+
+    match:
+      senderJid: "@me"
+      type: [text, audio]
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          - '(?<![\p{L}\p{N}])(?:turn off|switch off) the (?<room>[\p{L} ]+?) light(?![\p{L}\p{N}])'
+
+    transcribe: true
+
+    actions:
+      - type: ha.action
+        entityId: "light.{{room}}"
+        action: turn_off
+      - type: notify.console
+        message: "🌑 off: light.{{room}}"
+
+  # ------------------------------------------------------------
+  # OTHER COMMANDS OF THE SAME SHAPE
+  #
+  # Switches instead of lights (the domain comes from the entityId):
+  #   - type: ha.action
+  #     entityId: "switch.{{room}}"
+  #     action: toggle
+  #
+  # A script that decides for itself, given the whole sentence:
+  #   - type: ha.script
+  #     script: script.home_commands
+  #     variables:
+  #       sentence: "{{content}}"
+  #       room: "{{room}}"
+  #       who: "{{sender}}"
+  #
+  # Press a button (e.g. "ring the doorbell"):
+  #   - type: ha.button
+  #     button: button.doorbell
+  #
+  # Trigger an automation:
+  #   - type: ha.automation
+  #     automation: gate
+  #
+  # TO TEST IT without touching the real house:
+  #   node tools/mock-ha.mjs 8199
+  #   HA_URL=http://127.0.0.1:8199 HA_TOKEN=test \
+  #     node src/index.js --simulate fixtures/home.json \
+  #     --config fixtures/home-commands.yaml --live
+  # ------------------------------------------------------------

@@ -1,16 +1,16 @@
 # ============================================================
-#  MODERAZIONE: LINK NEI GRUPPI
+#  MODERATION: LINKS IN GROUPS
 #
-#  Non fa niente su WhatsApp (il progetto è in sola lettura): manda il
-#  link a un tuo webhook, che deciderà cosa farne.
+#  Does nothing on WhatsApp (the project is read-only): it sends the link
+#  to a webhook of yours, which decides what to do with it.
 #
-#  Il payload, se non scrivi `body`, contiene tutto il contesto:
-#  chat, mittente, testo, tipo, trascrizione, data.
+#  The payload, if you don't write `body`, carries the whole context:
+#  chat, sender, text, type, transcript, date.
 # ============================================================
 
 rules:
-  - id: link-nei-gruppi
-    name: "Link nei gruppi"
+  - id: links-in-groups
+    name: "Links in groups"
     priority: 120
     enabled: false
 
@@ -22,24 +22,24 @@ rules:
         patterns: ['https?://', 'www\.', 't\.me/']
 
     actions:
-      # payload completo, comodo se il ricevente è tuo
+      # full payload, convenient when the receiver is yours
       - type: webhook
         url: https://example.com/hook
         headers:
           Authorization: "Bearer {{rule}}"
         body:
-          motivo: link
+          reason: link
           chat: "{{chat}}"
           chatJid: "{{chatJid}}"
-          da: "{{sender}}"
-          daJid: "{{senderJid}}"
-          testo: "{{text}}"
-          quando: "{{date}}"
+          from: "{{sender}}"
+          fromJid: "{{senderJid}}"
+          text: "{{text}}"
+          when: "{{date}}"
 
-      # in alternativa, un webhook di Home Assistant
+      # alternatively, a Home Assistant webhook
       # - type: ha.webhook
       #   webhookId: wa_link
 
-    # Nascondere l'invio in un log invece che altrove:
+    # Hide the report in a log instead of sending it anywhere:
     #   - type: notify.console
     #     message: "🔗 {{sender}} in {{chat}}: {{text}}"

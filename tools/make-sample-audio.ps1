@@ -1,12 +1,13 @@
-# Genera un finto vocale WhatsApp in data/samples/nota.ogg usando la voce di Windows
-# + ffmpeg, così puoi testare la trascrizione senza aspettare un vocale vero.
+# Generates a fake WhatsApp voice note in data/samples/note.ogg using the
+# Windows voice plus ffmpeg, so you can test transcription without waiting
+# for a real voice note.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\make-sample-audio.ps1
-#   node src/index.js --simulate data/sample-audio.json --live
+#   node src/index.js --simulate fixtures/sample-audio.json --live
 
 param(
-  [string]$Text = "Ciao, servono tre casse di vino rosso e due cartoni di bianco per domani mattina.",
-  [string]$Out = "data\samples\nota.ogg"
+  [string]$Text = "Hi, we need three boxes of red and two cartons of white for tomorrow morning.",
+  [string]$Out = "data\samples\note.ogg"
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,20 +27,20 @@ $voice = $synth.GetInstalledVoices() |
 
 if (-not $voice) {
   $voice = $synth.GetInstalledVoices() | Select-Object -First 1 -ExpandProperty VoiceInfo | Select-Object -ExpandProperty Name
-  Write-Warning "Nessuna voce italiana installata: uso '$voice'. La trascrizione potrebbe uscire in un'altra lingua."
+  Write-Warning "No Italian voice installed: using '$voice'. The transcript may come out in another language."
 } else {
-  Write-Host "Voce usata: $voice"
+  Write-Host "Using voice: $voice"
 }
 
 $synth.SelectVoice($voice)
 $synth.SetOutputToWaveFile($wavPath)
 $synth.Speak($Text)
 $synth.Dispose()
-Write-Host "WAV creato: $wavPath"
+Write-Host "WAV created: $wavPath"
 
-# WhatsApp manda i vocali in ogg/opus: convertiamo per testare il formato reale
+# WhatsApp sends voice notes as ogg/opus: convert so the real format is tested
 ffmpeg -hide_banner -loglevel error -y -i $wavPath -c:a libopus -b:a 32k -ar 48000 -ac 1 $outPath
 Remove-Item $wavPath -Force
 
-Write-Host "Vocale di prova pronto: $outPath"
-Write-Host "Test:  node src/index.js --simulate data/sample-audio.json --live"
+Write-Host "Sample voice note ready: $outPath"
+Write-Host "Test:  node src/index.js --simulate fixtures/sample-audio.json --live"
