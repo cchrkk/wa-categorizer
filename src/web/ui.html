@@ -270,22 +270,33 @@ function renderHighlight() {
   }
 }
 
-/** Writes into the textarea preserving the browser's native undo. */
-function writeToEditor(text, from, to, selectionAfter) {
-  yamlEl.setSelectionRange(from, to);
+/**
+ * Applies an operation to the textarea: `text` replaces `[from, to)`, then the
+ * selection goes to `[selectionStart, selectionEnd)` when they are given.
+ *
+ * It is the only function that touches the value, and the range travels inside
+ * the operation instead of being a separate parameter: that is what stops a
+ * caller from pairing the text with the wrong range. It used to happen — the
+ * Tab key inserted the whole document at the caret, so the file doubled on
+ * every press until the browser tab died.
+ *
+ * execCommand keeps the browser's native undo; the fallback is for browsers
+ * that no longer implement it.
+ */
+function applyOperation(op) {
+  yamlEl.setSelectionRange(op.from, op.to);
   yamlEl.focus();
   let ok = false;
-  try { ok = document.execCommand('insertText', false, text); } catch { ok = false; }
-  if (!ok) yamlEl.setRangeText(text, from, to, 'end');
-  if (selectionAfter) yamlEl.setSelectionRange(selectionAfter[0], selectionAfter[1]);
+  try { ok = document.execCommand('insertText', false, op.text); } catch { ok = false; }
+  if (!ok) yamlEl.setRangeText(op.text, op.from, op.to, 'end');
+  if (op.selectionStart != null) yamlEl.setSelectionRange(op.selectionStart, op.selectionEnd);
   markDirty();
   renderHighlight();
 }
 
 function indent(direction) {
-  const r = indentBlock(yamlEl.value, yamlEl.selectionStart, yamlEl.selectionEnd, direction);
-  if (!r) return;
-  writeToEditor(r.text, yamlEl.selectionStart, yamlEl.selectionEnd, [r.start, r.end]);
+  const op = indentBlock(yamlEl.value, yamlEl.selectionStart, yamlEl.selectionEnd, direction);
+  if (op) applyOperation(op);
 }
 
 yamlEl.addEventListener('keydown', (ev) => {
@@ -299,7 +310,7 @@ yamlEl.addEventListener('keydown', (ev) => {
     if (s !== yamlEl.selectionEnd) return; // with a selection, let the browser handle it
     ev.preventDefault();
     const lineStart = yamlEl.value.lastIndexOf('\n', s - 1) + 1;
-    writeToEditor('\n' + autoIndentLine(yamlEl.value.slice(lineStart, s)), s, s);
+    applyOperation({ text: '\n' + autoIndentLine(yamlEl.value.slice(lineStart, s)), from: s, to: s });
   }
 });
 

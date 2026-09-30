@@ -102,8 +102,15 @@ export function highlight(yaml) {
 
 /**
  * Block indentation, like in a real editor.
- * Returns { text, start, end } with the new text and the new selection,
- * or null when nothing changes.
+ *
+ * Returns `{ text, from, to, selectionStart, selectionEnd }`: `text` replaces
+ * exactly `[from, to)` in the current value, and the selection then goes to
+ * `[selectionStart, selectionEnd)`. Null when nothing changes.
+ *
+ * `text` being *only the block* is the point, not a detail: when it returned
+ * the whole document while the caller replaced the selection, every Tab key
+ * inserted a copy of the file at the caret — the document doubled each time
+ * and the browser tab died after a few presses.
  *
  * @param {string} value   the whole text
  * @param {number} selFrom selection start
@@ -131,21 +138,21 @@ export function indentBlock(value, selFrom, selTo, direction) {
   const next = updated.join('\n');
   if (next === block) return null;
 
-  let from;
-  let to;
+  let careta;
+  let caretb;
   if (s === e) {
     // collapsed caret: it stays where it was, shifted by how much the
     // indentation of that line changed
     const delta = direction > 0 ? 2 : updated[0].length - lines[0].length;
     const pos = Math.max(start, s + delta);
-    from = pos;
-    to = pos;
+    careta = pos;
+    caretb = pos;
   } else {
-    from = start;
-    to = start + next.length;
+    careta = start;
+    caretb = start + next.length;
   }
 
-  return { text: v.slice(0, start) + next + v.slice(end), start: from, end: to };
+  return { text: next, from: start, to: end, selectionStart: careta, selectionEnd: caretb };
 }
 
 /**

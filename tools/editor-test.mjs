@@ -86,20 +86,35 @@ check('line numbers follow the lines', () => {
 
 console.log('\nTab indentation\n');
 
+// What the textarea does with the operation: `text` replaces exactly [from, to).
+// Simulating this, and not just looking at `r.text`, is the whole point: the
+// function was correct while the editor wired it wrong, and every Tab inserted
+// a copy of the file at the caret until the browser tab died.
+const apply = (value, r) => value.slice(0, r.from) + r.text + value.slice(r.to);
+
 check('Tab adds two spaces', () => {
-  const r = indentBlock('name: value', 0, 0, 1);
-  eq(r.text, '  name: value');
+  const v = 'name: value';
+  eq(apply(v, indentBlock(v, 0, 0, 1)), '  name: value');
 });
 
 check('the caret moves with the text', () => {
-  const r = indentBlock('name: value', 5, 5, 1);
-  eq(r.text, '  name: value');
-  eq(r.start, 7, 'the caret did not stay where it was');
+  const v = 'name: value';
+  const r = indentBlock(v, 5, 5, 1);
+  eq(apply(v, r), '  name: value');
+  eq(r.selectionStart, 7, 'the caret did not stay where it was');
+});
+
+check('the operation touches only its own block, never the whole file', () => {
+  const v = 'a: 1\nb: 2\nc: 3';
+  const r = indentBlock(v, 5, 5, 1); // collapsed caret on the middle line
+  const after = apply(v, r);
+  eq(after, 'a: 1\n  b: 2\nc: 3');
+  ok(after.length < v.length * 2, `the file doubled (${v.length} -> ${after.length}): a copy went in instead of a replace`);
 });
 
 check('Shift+Tab removes the indentation', () => {
-  const r = indentBlock('    name: value', 6, 6, -1);
-  eq(r.text, '  name: value');
+  const v = '    name: value';
+  eq(apply(v, indentBlock(v, 6, 6, -1)), '  name: value');
 });
 
 check('Shift+Tab on an unindented line changes nothing', () => {
@@ -107,28 +122,36 @@ check('Shift+Tab on an unindented line changes nothing', () => {
 });
 
 check('with several lines selected it indents them all', () => {
-  const text = 'a: 1\nb: 2\nc: 3';
-  const r = indentBlock(text, 0, text.length, 1);
-  eq(r.text, '  a: 1\n  b: 2\n  c: 3');
-  eq(r.start, 0);
-  eq(r.end, r.text.length, 'the selection does not cover the block');
+  const v = 'a: 1\nb: 2\nc: 3';
+  const r = indentBlock(v, 0, v.length, 1);
+  eq(apply(v, r), '  a: 1\n  b: 2\n  c: 3');
+  eq(r.selectionStart, 0);
+  eq(r.selectionEnd, r.text.length, 'the selection does not cover the block');
 });
 
 check('if the selection ends at a line start, that line is untouched', () => {
-  const text = 'a: 1\nb: 2\nc: 3';
-  const r = indentBlock(text, 0, 5, 1); // selection = "a: 1\n"
-  eq(r.text, '  a: 1\nb: 2\nc: 3');
+  const v = 'a: 1\nb: 2\nc: 3';
+  eq(apply(v, indentBlock(v, 0, 5, 1)), '  a: 1\nb: 2\nc: 3'); // selection = "a: 1\n"
 });
 
 check('empty lines are not indented', () => {
-  const r = indentBlock('a: 1\n\nb: 2', 0, 10, 1);
-  eq(r.text, '  a: 1\n\n  b: 2');
+  const v = 'a: 1\n\nb: 2';
+  eq(apply(v, indentBlock(v, 0, 10, 1)), '  a: 1\n\n  b: 2');
 });
 
 check('with several lines selected it unindents them all', () => {
-  const text = '  a: 1\n  b: 2';
-  const r = indentBlock(text, 0, text.length, -1);
-  eq(r.text, 'a: 1\nb: 2');
+  const v = '  a: 1\n  b: 2';
+  eq(apply(v, indentBlock(v, 0, v.length, -1)), 'a: 1\nb: 2');
+});
+
+check('repeated Tab presses grow the file by two spaces, not by a copy', () => {
+  let v = 'a: 1\nb: 2\nc: 3';
+  for (let i = 0; i < 5; i++) {
+    const r = indentBlock(v, 5, 5, 1);
+    v = apply(v, r);
+  }
+  eq(v.split('\n').length, 3, `the file has ${v.split('\n').length} lines instead of 3`);
+  eq(v, 'a: 1\n          b: 2\nc: 3');
 });
 
 console.log('\nauto-indent on Enter\n');
