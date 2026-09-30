@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.0.0 — 2026-09-30
+
+### Renamed
+
+- **wa-categorizer is now wafflow.** New identity, new logo, same engine. The
+  repository is now `cchrkk/wafflow` (the old URL redirects), the image is
+  `ghcr.io/cchrkk/wafflow` (tags `2.0`, `2.0.0`, `latest`), and everything that
+  prints its name — banner, health, the panel — says `wafflow`.
+- The version jumps to 2.0.0 because the image path changed: anything pulling
+  `ghcr.io/cchrkk/wa-categorizer` must switch to the new name. The JSON logs and
+  the rules files are unchanged: a >1.0 config works as-is.
+
+### Changed
+
+- **New logo** (assets/logo.svg): the green speech bubble, kept from the
+  original artwork (metadata stripped, ~85 KB lighter).
+
 ## 1.0.1 — 2026-09-30
 
 ### Fixed

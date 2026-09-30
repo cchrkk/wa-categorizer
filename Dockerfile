@@ -1,4 +1,4 @@
-# wa-categorizer — production image
+# wafflow — production image
 FROM node:26-alpine
 
 # ffmpeg is only needed by the "command" transcription backend (local

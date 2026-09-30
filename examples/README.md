@@ -3,7 +3,7 @@
 One file per use case, each self-contained, with a title that says what it does.
 
 **How to use them:** copy the file you need into `config/rules.d/` (or on the server,
-into `/data/stacks/wa-categorizer/config/rules.d/`), open it and set `enabled: true`.
+into `/data/stacks/wafflow/config/rules.d/`), open it and set `enabled: true`.
 The program loads them all together in alphabetical order — there is nothing to paste
 into `rules.yaml`.
 

@@ -23,7 +23,7 @@ const flagValue = (f) => {
 };
 
 const HELP = `
-wa-categorizer — categorises WhatsApp messages and runs actions
+wafflow — categorises WhatsApp messages and runs actions
 
 Usage:
   npm start                     connects to WhatsApp (QR on first run) and listens
@@ -46,7 +46,7 @@ function banner(config) {
   if (config.settings.allowReply) {
     logger.warn('⚠ SENDING ENABLED — ALLOW_REPLY=true: rules can write into chats');
   }
-  logger.info(`wa-categorizer ${VERSION} · transcription: ${transcribeBackendName()}`);
+  logger.info(`wafflow ${VERSION} · transcription: ${transcribeBackendName()}`);
   const files = config.ruleFiles || [path.relative(paths.root, paths.rulesFile)];
   logger.info(`config: ${files.join(' + ')}`);
   logger.info(`rules active: ${config.rules.length}`);

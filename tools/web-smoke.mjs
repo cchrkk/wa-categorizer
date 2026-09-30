@@ -78,7 +78,7 @@ try {
     const r = await fetch(`${base}/`);
     const t = await r.text();
     assert(r.status === 200, `status ${r.status}`);
-    assert(t.includes('wa-categorizer'), 'the page does not contain the title');
+    assert(t.includes('wafflow'), 'the page does not contain the title');
   });
 
   await check('without a token it answers 401', async () => {

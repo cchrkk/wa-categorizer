@@ -13,7 +13,7 @@ Then open `http://<host>:<port>`. If `WEB_TOKEN` is empty, the generated token g
 `data/web-token.txt` and is printed at startup:
 
 ```bash
-docker compose logs wa-categorizer | grep -i token
+docker compose logs wafflow | grep -i token
 ```
 
 ## What it does

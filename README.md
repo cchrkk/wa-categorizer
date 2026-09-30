@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="wa-categorizer" width="512">
+  <img src="assets/logo.svg" alt="wafflow" width="512">
 </p>
 
-<h1 align="center">wa-categorizer</h1>
+<h1 align="center">wafflow</h1>
 
 Reads WhatsApp messages (through **Baileys**, the WhatsApp Web protocol), **categorises
 them with rules**, and runs **actions** based on those rules: voice-note transcription,
@@ -179,7 +179,7 @@ In practice: messages stay unread on your phone until *you* open WhatsApp.
 ## Project layout
 
 ```
-wa-categorizer/
+wafflow/
 ├─ src/                the program
 ├─ config/
 │  ├─ rules.yaml       ← your rules (not in the repo)

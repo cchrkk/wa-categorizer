@@ -1,5 +1,5 @@
 # ==============================================================
-#  wa-categorizer — rules (MINIMAL EXAMPLE)
+#  wafflow — rules (MINIMAL EXAMPLE)
 #
 #  Copy it to rules.yaml and edit it:
 #      cp config/rules.example.yaml config/rules.yaml

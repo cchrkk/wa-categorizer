@@ -1,5 +1,5 @@
 # ==============================================================
-#  wa-categorizer — generic Docker stack
+#  wafflow — generic Docker stack
 #
 #  For any host: it builds the image from this repository.
 #  On hosts where the Docker agent cannot build (read-only /root), use a
@@ -11,11 +11,11 @@
 # ==============================================================
 
 services:
-  wa-categorizer:
+  wafflow:
     build:
       context: .
-    image: wa-categorizer:latest
-    container_name: wa-categorizer
+    image: wafflow:latest
+    container_name: wafflow
     restart: unless-stopped
 
     # tini is already the image entrypoint: signals reach node, so rules,

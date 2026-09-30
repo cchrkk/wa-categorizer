@@ -48,7 +48,7 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-On the first run the QR appears **in the logs** (`docker compose logs -f wa-categorizer`)
+On the first run the QR appears **in the logs** (`docker compose logs -f wafflow`)
 to be scanned from WhatsApp → *Linked devices*.
 
 What the generic stack does:
@@ -81,8 +81,8 @@ The image carries a `HEALTHCHECK`, so `docker ps` shows `healthy` / `unhealthy` 
 anyone reading a log. The same judgement is one command away:
 
 ```bash
-docker compose exec wa-categorizer node src/index.js --health
-# wa-categorizer: healthy — connected=true paired=true messages=42 undecryptable(10m)=0
+docker compose exec wafflow node src/index.js --health
+# wafflow: healthy — connected=true paired=true messages=42 undecryptable(10m)=0
 ```
 
 It reads `data/health.json`, which the running process keeps up to date, and it says unhealthy
@@ -99,7 +99,7 @@ The data volume stays, so **there is no QR to scan again**.
 ### Public image
 
 GitHub Actions builds the image on every push to `main` and publishes it to
-`ghcr.io/cchrkk/wa-categorizer` (public: it pulls without credentials). On a server you can
+`ghcr.io/cchrkk/wafflow` (public: it pulls without credentials). On a server you can
 therefore skip cloning entirely: a `compose.yaml` with `image:` and your `.env` is enough.
 
 A real case of deploying to a host that **cannot build**: the agent running Docker commands

@@ -18,7 +18,7 @@
 It means **two sessions are using the same credentials**: WhatsApp replaces one, then the
 other, forever. Typical causes, most frequent first:
 
-1. **Two wa-categorizer instances running.** The program now refuses to start if it finds
+1. **Two wafflow instances running.** The program now refuses to start if it finds
    another live instance (lock in `data/instance.lock`). If one is stuck:
    `taskkill /F /IM node.exe` and restart.
 2. **Another process reading the same `auth/` folder** — an old copy of the project, or a

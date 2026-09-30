@@ -191,7 +191,7 @@ export function runHealth() {
     }
     if (snap.lastMessageAt) pezzi.push(`last message=${snap.lastMessageAt}`);
   }
-  console.log(`wa-categorizer: ${out} — ${pezzi.join(' ') || 'no data'}`);
+  console.log(`wafflow: ${out} — ${pezzi.join(' ') || 'no data'}`);
   for (const r of reasons) console.log(`  - ${r}`);
   return ok ? 0 : 1;
 }
@@ -203,10 +203,10 @@ export function runHealth() {
 async function sendAlert(address, count) {
   if (!env.healthNotify || !env.telegramToken || !env.telegramChatId) return;
   const testo = [
-    '⚠️ wa-categorizer is not decrypting',
+    '⚠️ wafflow is not decrypting',
     `• session ${address}: ${count} messages so far`,
     'WhatsApp is delivering messages this instance cannot read. It is not reading them.',
-    'On the server:  docker compose exec wa-categorizer node src/index.js --health',
+    'On the server:  docker compose exec wafflow node src/index.js --health',
   ].join('\n');
   try {
     const res = await fetch(`https://api.telegram.org/bot${env.telegramToken}/sendMessage`, {

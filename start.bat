@@ -26,7 +26,7 @@ if not exist "node_modules" (
   )
 )
 
-echo [i] Starting wa-categorizer... (Ctrl+C to stop)
+echo [i] Starting wafflow... (Ctrl+C to stop)
 node src/index.js %*
 endlocal
 pause
