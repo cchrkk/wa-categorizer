@@ -55,7 +55,7 @@ log line: the panel just shows it to you.
 ## Security
 
 - **The test is always a dry run**: the panel has no code path that sends WhatsApp
-  messages. The read-only invariant holds even if the panel had a bug.
+  messages — not even with `ALLOW_REPLY=true`. A bug in the panel cannot make it send.
 - With `WEB_BIND=0.0.0.0` anyone who reaches the port can **rewrite your rules**: always
   set a `WEB_TOKEN`. If you leave it empty it is generated, not left open.
 - In Docker the host binding is a separate choice, because inside the container the app

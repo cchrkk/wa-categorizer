@@ -213,7 +213,9 @@ npm run contacts
 | `classify` | — | optional LLM filter: `labels: [order, spam]` + `minConfidence: 0.7` |
 
 > `markRead` **does not exist**: if you write it in the config file the program refuses to
-> start. Read-only mode cannot be turned off from `rules.yaml`.
+> start. Read receipts and presence cannot be enabled from `rules.yaml` — and neither can
+> sending, which is `ALLOW_REPLY` in `.env` (see
+> [Read-only mode](../README.md#read-only-mode)).
 
 ### Several rules on the same message
 

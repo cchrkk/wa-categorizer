@@ -256,7 +256,7 @@ const HANDLERS = {
 
   reply: async (a, ctx) => {
     if (!ctx.settings.allowReply) {
-      throw new Error('"reply" action disabled: the project is in read-only mode (settings.readOnly)');
+      throw new Error('"reply" action disabled: sending is off (set ALLOW_REPLY=true in .env to enable it)');
     }
     const text = render(a.text, ctx);
     if (!text) throw new Error('reply without "text"');

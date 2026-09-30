@@ -50,6 +50,14 @@ export const env = {
   haToken: process.env.HA_TOKEN || '',
   haWebhookId: process.env.HA_WEBHOOK_ID || '',
 
+  /**
+   * Invio su WhatsApp: spento di default. Si accende SOLO da qui, mai da
+   * rules.yaml — il pannello web può riscrivere le regole, quindi un file di
+   * regole non deve poter accendere l'invio.
+   * Le spunte di lettura e la presenza restano spente in ogni caso.
+   */
+  allowReply: String(process.env.ALLOW_REPLY ?? 'false').toLowerCase() === 'true',
+
   webEnabled: String(process.env.WEB_ENABLED ?? 'false').toLowerCase() === 'true',
   webPort: Number(process.env.WEB_PORT || 8099),
   webBind: process.env.WEB_BIND || '127.0.0.1',
@@ -60,10 +68,11 @@ export const env = {
 
 const DEFAULT_SETTINGS = {
   /**
-   * MODALITÀ SOLO LETTURA (imposta dal progetto).
-   * Con readOnly=true il client non invia ricevute di lettura, non invia
-   * presenza/online e blocca le azioni che scrivono su WhatsApp ("reply").
-   * Non è disattivabile da rules.json: è una scelta architetturale.
+   * MODALITÀ SOLO LETTURA (imposta dal progetto): riguarda le **spie**.
+   * Con readOnly=true il client non invia ricevute di lettura e non invia
+   * presenza/online. È un'invariante: non si spegne da nessun file di
+   * configurazione.
+   * L'invio è l'unica eccezione, e sta in allowReply (che arriva da .env).
    */
   readOnly: true,
   /** Se true i file vocali vengono scaricati e trascritti. */
@@ -82,7 +91,11 @@ const DEFAULT_SETTINGS = {
   downloadOtherMedia: false,
   /** Abilita l'azione "shell" (esegue comandi locali). Per sicurezza: off. */
   allowShell: false,
-  /** Abilita l'azione "reply" (scrive nella chat). Richiede readOnly=false. */
+  /**
+   * Invio su WhatsApp (azione "reply"). Fonte di verità: ALLOW_REPLY in .env.
+   * Questo valore è solo la copia in memoria, e loadConfig() lo riscrive sempre
+   * con quello che arriva dall'ambiente.
+   */
   allowReply: false,
   /** Ignora i messaggi inviati da te (da me -> false = ignorali) */
   processOwnMessages: false,
@@ -156,14 +169,14 @@ function loadRuleDir(dir) {
     try {
       conf = readJsonFile(pieno, {});
     } catch (err) {
-      out.warnings.push(`${nome}: ${err.message}`);
+      out.warnings.push(`rules.d/${nome}: ${err.message}`);
       continue;
     }
     if (!Array.isArray(conf.rules)) {
-      if (conf.rules !== undefined) out.warnings.push(`${nome}: "rules" deve essere una lista, ignored`);
+      if (conf.rules !== undefined) out.warnings.push(`rules.d/${nome}: "rules" deve essere una lista, ignored`);
       continue;
     }
-    if (conf.settings) out.warnings.push(`${nome}: "settings" viene ignorato (sta solo nel file principale)`);
+    if (conf.settings) out.warnings.push(`rules.d/${nome}: "settings" viene ignorato (sta solo nel file principale)`);
     out.files.push(nome);
     out.rules.push(...conf.rules.map((r) => ({ ...r, _da: nome })));
   }
@@ -188,10 +201,21 @@ export function loadConfig(file = paths.rulesFile) {
     throw new Error(`Invalid configuration:\n  - ${errors.join('\n  - ')}`);
   }
 
-  // readOnly è una invariante: qualunque azione che scrive su WhatsApp è forzata off.
+  // Non si accendono da nessun file: sono la ragione per cui il progetto
+  // esiste. L'invio invece è un'eccezione esplicita, e arriva solo da .env.
   const settings = { ...DEFAULT_SETTINGS, ...(fileConf.settings || {}) };
   settings.readOnly = true;
-  if (settings.readOnly) settings.allowReply = false;
+  settings.allowReply = env.allowReply === true;
+
+  const warnings = [...sparse.warnings];
+  // Il caso "invio acceso" lo annunciano il banner all'avvio e `npm run check`:
+  // qui basta dirlo quando qualcuno ha provato ad accenderlo dal file sbagliato.
+  if (!settings.allowReply && (fileConf.settings || {}).allowReply === true) {
+    warnings.push(
+      '"settings.allowReply: true" is ignored: sending is enabled only by ALLOW_REPLY=true in .env ' +
+      '(the panel can rewrite the rules, not the .env)',
+    );
+  }
 
   return {
     settings,
@@ -199,7 +223,7 @@ export function loadConfig(file = paths.rulesFile) {
     paths,
     env,
     ruleFiles: [path.basename(file), ...sparse.files],
-    warnings: sparse.warnings,
+    warnings,
   };
 }
 

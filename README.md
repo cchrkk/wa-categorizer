@@ -8,8 +8,8 @@ Reads WhatsApp messages (through **Baileys**, the WhatsApp Web protocol), **cate
 them with rules**, and runs **actions** based on those rules: voice-note transcription,
 Telegram, Home Assistant, webhooks, files, local commands.
 
-**Read-only by design**: no read receipts, no presence, no sending.
-See [what that guarantees](#read-only-mode).
+**Read-only by design**: no read receipts, no presence. It does not send either — unless you
+explicitly turn it on. See [what that guarantees](#read-only-mode).
 
 ```yaml
 # example: voice notes in an "Orders" chat get transcribed and sent
@@ -114,8 +114,28 @@ This project **observes and nothing else**:
   made unreachable on the client. People who write to you will **never** see blue ticks
 - **no presence** — you do not appear online, you do not show "typing"
 - **no history download** — only messages that arrive while the process is running
-- **no sending** — the `reply` action is blocked, and re-enabling it requires turning off
-  `readOnly`: the config file rejects it as an error
+- **no sending** — off unless you turn it on, see the exception below
+
+The first three are not configurable at all: no setting, in `.env` or in the rules, turns
+them on. They are the reason this program exists.
+
+### The one exception: `ALLOW_REPLY`
+
+Sending is the only guarantee you can drop, and you drop it **in `.env`** — never in
+`rules.yaml`:
+
+```ini
+ALLOW_REPLY=true
+```
+
+With it on, rules that use the `reply` action really write into the chat, with your number,
+at whatever hour the rule fires. That is also what lets the
+[Assist chat](docs/home-assistant.md#assist-talking-to-it) answer you inside WhatsApp.
+
+It is deliberately **not** possible from the rules file: the web panel can rewrite your
+rules, and a stolen panel token should not be able to start sending messages. Read receipts
+and presence stay off even then, and both `npm run check` and the startup banner remind you
+that sending is on.
 
 One thing **is not up to us**, honestly: the grey double tick of **delivery**. WhatsApp's
 server generates it when the message reaches the linked device. Blue ticks are ours to

@@ -3,6 +3,10 @@
 Actions run in order, each with a timeout. **Errors are isolated**: one failing action does
 not stop the others, and every result is reported in the log.
 
+Actions can also **leave a value for the ones that follow**: `ha.assist` puts Assist's
+answer in `{{assist}}` (see [Assist](home-assistant.md#assist-talking-to-it)), and the next
+action of the same rule can use it.
+
 | `type` | parameters | what it does |
 |---|---|---|
 | `log` | `level`, `message` | writes to the log |
@@ -18,7 +22,7 @@ not stop the others, and every result is reported in the log.
 | `ha.webhook` | `webhookId?`, `body?` | calls a Home Assistant webhook |
 | `ha.assist` | `text`, `language?`, `agentId?` | asks **Assist**, leaves the answer in `{{assist}}` |
 | `appendJsonl` | `file`, `fields?` | appends one JSON line to a file |
-| `reply` | `text` | ⛔ **blocked**: it would write into the chat (read-only) |
+| `reply` | `text` | writes into the chat — **off** unless `ALLOW_REPLY=true` in `.env` |
 | `shell` | `command`, `cwd?`, `timeoutMs?` | runs a local command (requires `settings.allowShell: true`) |
 
 Home Assistant specifics are in [home-assistant.md](home-assistant.md).

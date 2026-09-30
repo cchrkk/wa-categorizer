@@ -119,9 +119,21 @@ You write `!accendi la luce della cameretta` and the answer arrives on Telegram.
 nothing special about the prefix: it is that regex, so it can be `.`, `bot:`, `casa,`,
 whatever you like — and `(?<q>...)` is the part handed to Assist.
 
-The answer is **not** written back into the chat: this program never sends messages (the
-`reply` row in [Actions](actions.md)). Point `{{assist}}` at Telegram, at a phone
-notification (`ha.notify`), at the log (`notify.console`), at a file (`appendJsonl`).
+The answer is **not** written back into the chat by default: this program does not send
+messages. Point `{{assist}}` at Telegram, at a phone notification (`ha.notify`), at the log
+(`notify.console`), at a file (`appendJsonl`).
+
+If you want the answer **inside the conversation**, switch sending on in `.env`
+(`ALLOW_REPLY=true`, see [Read-only mode](../README.md#read-only-mode)) and add one line.
+The answer is already sitting in `{{assist}}`, so you just hand it to `reply`:
+
+```yaml
+  actions:
+    - type: ha.assist
+      text: "{{q}}"
+    - type: reply
+      text: "🤖 {{assist}}"
+```
 
 `agentId` picks a specific conversation agent (`conversation` is the default), `language`
 forces the language of the answer. To talk to Assist with your **voice**, drop the prefix

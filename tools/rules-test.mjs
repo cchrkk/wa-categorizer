@@ -3,7 +3,7 @@
 //
 //   node tools/rules-test.mjs
 import { ruleMatches, auditRegexes, extractCaptures } from '../src/rules.js';
-import { render } from '../src/actions.js';
+import { render, runActions } from '../src/actions.js';
 
 let failed = 0;
 function check(name, fn) {
@@ -135,6 +135,47 @@ check('{{room}} becomes the captured word', () => {
 check('an unknown placeholder stays visible', () => {
   const ctx = { rule: { id: 'r', name: 'r' }, msg: {}, text: 'x' };
   eq(render('{{doesnotexist}}', ctx), '{{doesnotexist}}');
+});
+
+console.log('\nsending is opt-in (ALLOW_REPLY)\n');
+
+async function checkAsync(name, fn) {
+  try {
+    await fn();
+    console.log(`  ✓ ${name}`);
+  } catch (err) {
+    failed += 1;
+    console.log(`  ✗ ${name}\n      ${err.message}`);
+  }
+}
+
+const sendCtx = (allowReply) => ({
+  rule: { id: 'r', name: 'r' },
+  msg: { chatJid: 'x@s.whatsapp.net', senderJid: 'y@s.whatsapp.net' },
+  settings: { allowReply },
+  sent: [],
+});
+
+await checkAsync('the "reply" action is refused while sending is off', async () => {
+  const ctx = sendCtx(false);
+  ctx.send = async (...args) => ctx.sent.push(args);
+  const res = await runActions([{ type: 'reply', text: 'hello' }], ctx);
+  eq(res.results[0].ok, false, 'it did not fail');
+  if (!/ALLOW_REPLY/.test(res.results[0].error)) {
+    throw new Error(`the error does not say how to turn it on: ${res.results[0].error}`);
+  }
+  eq(ctx.sent.length, 0, 'it sent something anyway');
+});
+
+await checkAsync('with sending on, what ha.assist left is what gets sent', async () => {
+  const ctx = sendCtx(true);
+  ctx.outputs = { assist: 'the kitchen light is on' };
+  ctx.send = async (jid, content) => ctx.sent.push({ jid, content });
+  const res = await runActions([{ type: 'reply', text: '🤖 {{assist}}' }], ctx);
+  eq(res.results[0].ok, true, `it failed: ${res.results[0].error}`);
+  eq(ctx.sent.length, 1, 'nothing was sent');
+  eq(ctx.sent[0].jid, 'x@s.whatsapp.net');
+  eq(ctx.sent[0].content.text, '🤖 the kitchen light is on');
 });
 
 console.log(failed ? `\n✗ ${failed} tests failed\n` : '\n✓ rules ok\n');

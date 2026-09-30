@@ -41,6 +41,9 @@ Options:
 function banner(config) {
   logger.info('─'.repeat(72));
   logger.info('🔒 READ-ONLY MODE — no blue ticks, no online presence');
+  if (config.settings.allowReply) {
+    logger.warn('⚠ SENDING ENABLED — ALLOW_REPLY=true: rules can write into chats');
+  }
   logger.info(`wa-categorizer · transcription: ${transcribeBackendName()}`);
   const files = config.ruleFiles || [path.relative(paths.root, paths.rulesFile)];
   logger.info(`config: ${files.join(' + ')}`);
@@ -78,11 +81,12 @@ async function runCheck(config) {
   logger.info('▶ checking configuration…');
   logger.info('  ✓ read-only: readMessages() and presence disabled at the client level');
   if (config.settings.allowReply) {
-    logger.warn('  ! allowReply is on: rules can write into chats');
+    logger.warn('  ! ALLOW_REPLY=true: rules with the "reply" action can WRITE INTO CHATS');
+    logger.warn('    (read receipts and presence stay off: those are not configurable)');
   }
   const wantsReply = config.rules.some((r) => r.actions.some((a) => a.type === 'reply'));
   if (wantsReply && !config.settings.allowReply) {
-    logger.warn('  ! "reply" action used but blocked by read-only mode');
+    logger.warn('  ! "reply" action used but sending is off: set ALLOW_REPLY=true in .env to enable it');
   }
 
   try {
@@ -198,7 +202,7 @@ async function runCheck(config) {
   }
 
   logger.info(`  ✓ config: ${(config.ruleFiles || []).join(' + ')}`);
-  for (const w of config.warnings || []) logger.warn(`  ! rules.d: ${w}`);
+  for (const w of config.warnings || []) logger.warn(`  ! ${w}`);
 
   logger.info(ok ? '✓ configuration valid' : '✗ configuration has errors');
   return ok ? 0 : 1;

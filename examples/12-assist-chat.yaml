@@ -5,9 +5,12 @@
 #  conversation agent — the same one the voice assistants use.
 #  You write `!accendi la luce della cameretta` and Assist answers.
 #
-#  The answer is NOT sent back into the chat: this program never writes into a
-#  chat. It goes wherever you point {{assist}} — here Telegram, but
-#  notify.console, ha.notify and appendJsonl all work the same way.
+#  By default the answer is NOT sent back into the chat: it goes wherever you
+#  point {{assist}} — here Telegram, but notify.console, ha.notify and
+#  appendJsonl all work the same way.
+#
+#  To have the answer inside the conversation, switch sending on in .env
+#  (ALLOW_REPLY=true) and add a "reply" action: see the note at the bottom.
 #
 #  The prefix is nothing special: it is this regex. Change it to whatever you
 #  like (`.`, `bot:`, `casa,`) and the capture group (?<q>...) is the part
@@ -44,6 +47,11 @@ rules:
       #     service: mobile_app_my_phone
       #     title: "Assist"
       #     message: "{{assist}}"
+
+      # to have the answer INSIDE the chat, turn sending on in .env
+      # (ALLOW_REPLY=true) and use this instead:
+      #   - type: reply
+      #     text: "🤖 {{assist}}"
 
     # To talk to Assist with your VOICE instead, drop the prefix: it makes no
     # sense to say "!" out loud. This variant lives alongside the one above and
