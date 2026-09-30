@@ -58,6 +58,41 @@ function matchesText(value, spec) {
 }
 
 /**
+ * Estrae i gruppi di cattura dalla prima regex di textMatch che matcha.
+ * Serve a usare nel campo di un'azione una parola presa dal messaggio:
+ *
+ *   textMatch: { mode: regex, patterns: ['accendi (?:la )?luce (?<stanza>\w+)'] }
+ *   entityId: "light.{{stanza}}"
+ *
+ * Ritorna { list: ["cameretta"], named: { stanza: "cameretta" } } oppure null.
+ */
+export function extractCaptures(rule, text) {
+  const tm = rule.match?.textMatch;
+  if (!tm || typeof tm !== 'object' || Array.isArray(tm)) return null;
+  if (String(tm.mode || '').toLowerCase() !== 'regex') return null;
+  if (text == null || text === '') return null;
+
+  // niente flag g: exec su una regex globale diventa stateful
+  const flags = String(tm.flags || 'i').replace(/[^imsuy]/g, '');
+
+  for (const p of asArray(tm.patterns ?? tm.value)) {
+    let re;
+    try {
+      re = new RegExp(String(p), flags);
+    } catch {
+      continue;
+    }
+    const m = re.exec(String(text));
+    if (!m) continue;
+    return {
+      list: m.slice(1).map((x) => (x == null ? '' : x)),
+      named: { ...(m.groups || {}) },
+    };
+  }
+  return null;
+}
+
+/**
  * Cerca la trappola classica delle regex sui testi italiani: un \b che deve
  * fare da confine a una parola accentata. \b considera lettere solo
  * [A-Za-z0-9_], quindi "\b(cartone|città)\b" non matcherà mai su "città":

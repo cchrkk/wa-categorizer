@@ -112,17 +112,30 @@ async function runCheck(config) {
   }
 
   // Segnaposto scritti male: {{transcriptt}} non esplode, ma esce vuoto o letterale.
+  // Sono validi anche i gruppi di cattura delle regex: {{1}} e {{nome}}.
+  const gruppiConNome = new Set();
+  for (const r of config.rules) {
+    const tm = r.match?.textMatch;
+    if (!tm || typeof tm !== 'object' || Array.isArray(tm)) continue;
+    for (const p of [].concat(tm.patterns ?? tm.value ?? [])) {
+      for (const g of String(p).matchAll(/\(\?<([A-Za-z]\w*)>/g)) gruppiConNome.add(g[1]);
+    }
+  }
+
   const raw = JSON.stringify(config.rules);
   const unknowns = new Set();
   for (const [, name] of raw.matchAll(/\{\{(\w+)\}\}/g)) {
-    if (!PLACEHOLDERS.includes(name)) unknowns.add(name);
+    if (PLACEHOLDERS.includes(name)) continue;
+    if (/^\d+$/.test(name)) continue;            // {{1}}, {{2}}: gruppi di cattura
+    if (gruppiConNome.has(name)) continue;        // {{stanza}}: gruppo con nome
+    unknowns.add(name);
   }
   if (unknowns.size) {
     ok = false;
     logger.error(`  ✗ segnaposto sconosciuti: ${[...unknowns].join(', ')}`);
-    logger.error(`     disponibili: ${PLACEHOLDERS.join(', ')}`);
+    logger.error(`     disponibili: ${PLACEHOLDERS.join(', ')}, {{1}}, {{nomeGruppo}}`);
   } else {
-    logger.info('  ✓ tutti i segnaposto {{...}} sono validi');
+    logger.info(`  ✓ tutti i segnaposto {{...}} sono validi${gruppiConNome.size ? ` (gruppi: ${[...gruppiConNome].join(', ')})` : ''}`);
   }
 
   if (usedTypes.has('notify.telegram')) {

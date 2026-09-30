@@ -7,7 +7,7 @@ import { appendJsonl } from './store.js';
 const log = childLogger('actions');
 const execAsync = promisify(exec);
 
-function render(template, ctx) {
+export function render(template, ctx) {
   if (template == null) return '';
   const map = {
     // contenuto utile: il testo scritto, oppure la trascrizione del vocale
@@ -23,8 +23,17 @@ function render(template, ctx) {
     type: ctx.msg.type,
     label: ctx.classification?.label || '',
     confidence: ctx.classification?.confidence ?? '',
+    fileName: ctx.msg.fileName || '',
+    seconds: ctx.msg.seconds ?? '',
     date: new Date().toISOString(),
   };
+
+  // gruppi di cattura della regex: {{1}} {{2}} e i gruppi con nome {{stanza}}
+  if (ctx.captures) {
+    ctx.captures.list.forEach((v, i) => { map[String(i + 1)] = v; });
+    Object.assign(map, ctx.captures.named);
+  }
+
   return String(template).replace(/\{\{(\w+)\}\}/g, (m, k) => (k in map ? map[k] : m));
 }
 
@@ -130,7 +139,7 @@ const HANDLERS = {
 
   /** Azione generica su una entità: es. "light", "switch", "media_player". */
   'ha.action': async (a, ctx) => {
-    const target = a.entityId || a.entity;
+    const target = renderDeep(a.entityId || a.entity, ctx);
     if (!target) throw new Error('ha.action richiede "entityId" (es. light.salotto)');
     if (!a.action) throw new Error('ha.action richiede "action" (es. turn_on, toggle)');
     const [domain] = String(target).split('.');
@@ -141,7 +150,7 @@ const HANDLERS = {
 
   /** Premere un button (o più di uno). */
   'ha.button': async (a, ctx) => {
-    const target = a.button || a.entityId;
+    const target = renderDeep(a.button || a.entityId, ctx);
     if (!target) throw new Error('ha.button richiede "button" (es. button.campanello)');
     const ids = [].concat(target).map((t) => (String(t).includes('.') ? String(t) : `button.${t}`));
     await haCall('button/press', { entity_id: ids.length === 1 ? ids[0] : ids });
@@ -154,7 +163,7 @@ const HANDLERS = {
    *   wait assente → script.turn_on, non aspetta
    */
   'ha.script': async (a, ctx) => {
-    const target = a.script || a.entityId;
+    const target = renderDeep(a.script || a.entityId, ctx);
     if (!target) throw new Error('ha.script richiede "script" (es. script.notifica_ordine)');
     const id = String(target).replace(/^script\./, '');
     const variables = renderDeep(a.variables || a.data || {}, ctx);
@@ -167,7 +176,7 @@ const HANDLERS = {
 
   /** Attivare un'automazione. */
   'ha.automation': async (a, ctx) => {
-    const target = a.automation || a.entityId;
+    const target = renderDeep(a.automation || a.entityId, ctx);
     if (!target) throw new Error('ha.automation richiede "automation" (es. automation.cancello)');
     const id = String(target).includes('.') ? String(target) : `automation.${target}`;
     await haCall('automation/trigger', { entity_id: id });
@@ -175,7 +184,7 @@ const HANDLERS = {
 
   /** Scorciatoia per notify.<servizio> — il caso più comune. */
   'ha.notify': async (a, ctx) => {
-    const service = a.service || a.target;
+    const service = renderDeep(a.service || a.target, ctx);
     if (!service) throw new Error('ha.notify richiede "service" (es. mobile_app_il_mio_telefono)');
     const body = {
       message: render(a.message ?? '{{content}}', ctx),
@@ -218,10 +227,11 @@ const HANDLERS = {
 
 export const ACTION_TYPES = Object.keys(HANDLERS);
 
-/** Segnaposto riconosciuti da render(): usati da `--check` per scoprire i refusi. */
+/** Segnaposto riconosciuti da render(): usati da `--check` per scoprire i refusi.
+ *  Oltre a questi valgono {{1}}, {{2}}... e i gruppi con nome delle regex. */
 export const PLACEHOLDERS = [
   'content', 'text', 'transcript', 'chat', 'chatJid', 'sender', 'senderJid',
-  'rule', 'ruleName', 'type', 'label', 'confidence', 'date',
+  'rule', 'ruleName', 'type', 'label', 'confidence', 'fileName', 'seconds', 'date',
 ];
 
 /**

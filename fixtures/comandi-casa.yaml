@@ -1,0 +1,59 @@
+# Regole di prova per i comandi casa: nella realtà si usa senderJid: "@me",
+# qui si matcha sul nome della chat per non dipendere dalla rubrica.
+#
+#   node tools/mock-ha.mjs 8199
+#   HA_URL=http://127.0.0.1:8199 HA_TOKEN=prova \
+#     node src/index.js --simulate fixtures/casa.json --config fixtures/comandi-casa.yaml --live
+
+settings:
+  transcribeAudio: false
+  logMessages: false
+  processOwnMessages: true
+  mediaRetentionDays: -1
+
+rules:
+  - id: casa-accendi-luce
+    name: "Casa — accendi luce <stanza>"
+    priority: 5
+    enabled: true
+
+    match:
+      chatName: Casa
+      type: [text, audio]
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          - '(?<![\p{L}\p{N}])accendi (?:la )?luce (?:di |della |del |in )?(?<stanza>[\p{L}]+)(?![\p{L}\p{N}])'
+
+    transcribe: true
+
+    actions:
+      - type: ha.action
+        entityId: "light.{{stanza}}"
+        action: turn_on
+      - type: notify.console
+        message: "💡 accesa: light.{{stanza}}"
+
+  - id: casa-spegni-luce
+    name: "Casa — spegni luce <stanza>"
+    priority: 6
+    enabled: true
+
+    match:
+      chatName: Casa
+      type: [text, audio]
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          - '(?<![\p{L}\p{N}])(?:spegni|spegnere|chiudi) (?:la )?luce (?:di |della |del |in )?(?<stanza>[\p{L}]+)(?![\p{L}\p{N}])'
+
+    transcribe: true
+
+    actions:
+      - type: ha.action
+        entityId: "light.{{stanza}}"
+        action: turn_off
+      - type: notify.console
+        message: "🌑 spenta: light.{{stanza}}"

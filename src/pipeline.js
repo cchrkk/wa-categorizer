@@ -1,4 +1,4 @@
-import { ruleMatches, classifyAllows } from './rules.js';
+import { ruleMatches, classifyAllows, extractCaptures } from './rules.js';
 import { classify } from './classify.js';
 import { runActions } from './actions.js';
 import { transcribe } from './transcribe.js';
@@ -131,6 +131,8 @@ export async function handleMessage({ config, msg, send = null, downloadMedia = 
       settings,
       send,
       dryRun,
+      // parole prese dal messaggio con i gruppi di cattura della regex
+      captures: extractCaptures(rule, text),
     });
 
     results.matched.push(rule.id);

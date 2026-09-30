@@ -48,6 +48,21 @@ jobs:
           echo "--- chiamate ricevute ---"
           cat /tmp/mock-ha.log
 
+      - name: Comandi casa (segnaposto dai gruppi di cattura)
+        run: |
+          node tools/mock-ha.mjs 8200 > /tmp/mock-casa.log 2>&1 &
+          MOCK_PID=$!
+          sleep 2
+          export HA_URL=http://127.0.0.1:8200
+          export HA_TOKEN=prova
+          node src/index.js --simulate fixtures/casa.json --config fixtures/comandi-casa.yaml --live
+          kill "$MOCK_PID"
+          echo "--- chiamate ricevute ---"
+          cat /tmp/mock-casa.log
+          grep -q 'light.cameretta' /tmp/mock-casa.log \
+            && echo "OK: ha chiamato light.turn_on su light.cameretta" \
+            || { echo "ERRORE: entity_id non arrivato"; exit 1; }
+
       - name: Pannello web
         run: node tools/web-smoke.mjs
 

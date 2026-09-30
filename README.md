@@ -320,10 +320,36 @@ con il tuo numero in `senderJid`. Nel file c'è già pronta, disattivata, `note-
 Nelle stringhe puoi usare i segnaposto:
 `{{content}}` (il testo, o la trascrizione se è un vocale), `{{text}}`, `{{transcript}}`,
 `{{chat}}`, `{{chatJid}}`, `{{sender}}`, `{{senderJid}}`, `{{rule}}`, `{{ruleName}}`,
-`{{type}}`, `{{label}}`/`{{confidence}}` (dalla classificazione), `{{date}}`.
+`{{type}}`, `{{label}}`/`{{confidence}}` (dalla classificazione), `{{fileName}}`,
+`{{seconds}}`, `{{date}}`.
 
 Un segnaposto scritto male (`{{transcriptt}}`) resta visibile nel messaggio invece di
 sparire, e `npm run check` te lo segnala.
+
+### Parole prese dal messaggio: i gruppi di cattura
+
+`{{1}}`, `{{2}}`… e `{{nome}}` sono i **gruppi di cattura** della regex di `textMatch`.
+Servono a riusare in un'azione una parola trovata nel messaggio:
+
+```yaml
+- id: casa-accendi-luce
+  match:
+    senderJid: "@me"
+    type: [text, audio]
+    textMatch:
+      mode: regex
+      flags: iu
+      patterns:
+        - '(?<![\p{L}\p{N}])accendi (?:la )?luce (?:della |in )?(?<stanza>[\p{L}]+)(?![\p{L}\p{N}])'
+  transcribe: true
+  actions:
+    - type: ha.action
+      entityId: "light.{{stanza}}"     # "accendi luce cameretta" -> light.cameretta
+      action: turn_on
+```
+
+`npm run check` elenca anche i gruppi che trova: `✓ tutti i segnaposto {{...}} sono validi
+(gruppi: stanza)`.
 
 Ogni azione ha timeout, gli errori sono isolati (un'azione fallita non blocca le altre) e
 vengono riportati nel log.

@@ -1,7 +1,8 @@
 // Test del motore di match: confini unicode e trappola del \b con gli accenti.
 //
 //   node tools/rules-test.mjs
-import { ruleMatches, auditRegexes } from '../src/rules.js';
+import { ruleMatches, auditRegexes, extractCaptures } from '../src/rules.js';
+import { render } from '../src/actions.js';
 
 let falliti = 0;
 function check(nome, fn) {
@@ -94,6 +95,45 @@ check('non segnala se non c è \\b', () => {
 check('non guarda le regole in modalità contains', () => {
   const p = auditRegexes([regola({ mode: 'contains', patterns: ['città'] })]);
   eq(p.length, 0);
+});
+
+console.log('\ngruppi di cattura (per usarli nelle azioni)\n');
+
+check('estrae un gruppo con nome', () => {
+  const r = extractCaptures(
+    { id: 'r', match: { textMatch: { mode: 'regex', flags: 'iu', patterns: ['accendi (?:la )?luce (?:della |in )?(?<stanza>[\\p{L}]+)'] } } },
+    'accendi la luce della cameretta',
+  );
+  eq(r.named.stanza, 'cameretta');
+});
+
+check('estrae anche i gruppi numerati', () => {
+  const r = extractCaptures({ id: 'r', match: { textMatch: { mode: 'regex', patterns: ['(\\d+)\\s+(casse)'] } } }, '3 casse');
+  eq(r.list, ['3', 'casse']);
+});
+
+check('null se la modalità non è regex', () => {
+  eq(extractCaptures({ id: 'r', match: { textMatch: { mode: 'contains', patterns: ['casse'] } } }, '3 casse'), null);
+});
+
+check('null se la regex non matcha', () => {
+  eq(extractCaptures({ id: 'r', match: { textMatch: { mode: 'regex', patterns: ['(casse)'] } } }, 'niente da fare'), null);
+});
+
+check('{{stanza}} diventa la parola catturata', () => {
+  const ctx = {
+    rule: { id: 'casa', name: 'casa' },
+    msg: { chatName: 'Casa', senderName: 'Mario', type: 'text' },
+    text: 'accendi la luce della cameretta',
+    captures: { list: ['cameretta'], named: { stanza: 'cameretta' } },
+  };
+  eq(render('light.{{stanza}}', ctx), 'light.cameretta');
+  eq(render('stanza {{1}}', ctx), 'stanza cameretta');
+});
+
+check('un segnaposto sconosciuto resta visibile', () => {
+  const ctx = { rule: { id: 'r', name: 'r' }, msg: {}, text: 'x' };
+  eq(render('{{inesistente}}', ctx), '{{inesistente}}');
 });
 
 console.log(falliti ? `\n✗ ${falliti} test falliti\n` : '\n✓ regole ok\n');
