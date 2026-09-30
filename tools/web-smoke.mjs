@@ -115,6 +115,13 @@ try {
     assert(t.includes('export function highlight'), 'that is not the right module');
   });
 
+  await check('GET /logo.svg serves the icon', async () => {
+    const r = await fetch(`${base}/logo.svg`);
+    const t = await r.text();
+    assert(r.status === 200, `status ${r.status}`);
+    assert(t.includes('<svg'), 'that is not an svg');
+  });
+
   await check('PUT /api/rules with dryRun validates and does NOT write', async () => {
     const before = fs.readFileSync(rules, 'utf8');
     const { status, body } = await j(await fetch(`${base}/api/rules`, {

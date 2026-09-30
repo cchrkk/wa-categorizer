@@ -1,4 +1,8 @@
-# wa-categorizer
+<p align="center">
+  <img src="assets/logo.svg" alt="wa-categorizer" width="128">
+</p>
+
+<h1 align="center">wa-categorizer</h1>
 
 Reads WhatsApp messages (through **Baileys**, the WhatsApp Web protocol), **categorises
 them with rules**, and runs **actions** based on those rules: voice-note transcription,

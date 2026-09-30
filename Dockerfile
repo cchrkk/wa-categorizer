@@ -14,6 +14,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY src/ ./src/
+COPY assets/ ./assets/
 COPY config/rules.example.yaml ./config/
 COPY config/rules.d/README.md ./config/rules.d/
 COPY examples/ ./examples/

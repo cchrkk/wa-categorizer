@@ -152,12 +152,22 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
       return;
     }
 
-    // La logica dell'editor è un modulo a parte, così si può testare in Node.
+    // The editor logic is a separate module, so it can be tested in Node.
     if (route === 'GET /editor.js') {
       try {
         send(res, 200, fs.readFileSync(path.join(HERE, 'web', 'editor.js')), 'text/javascript; charset=utf-8');
       } catch (err) {
         send(res, 500, { error: `editor.js non leggibile: ${err.message}` });
+      }
+      return;
+    }
+
+    // Logo, used as the page icon.
+    if (route === 'GET /logo.svg') {
+      try {
+        send(res, 200, fs.readFileSync(path.join(paths.root, 'assets', 'logo.svg')), 'image/svg+xml');
+      } catch {
+        send(res, 404, { error: 'logo not found' });
       }
       return;
     }
