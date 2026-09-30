@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="wa-categorizer" width="128">
+  <img src="assets/logo.svg" alt="wa-categorizer" width="512">
 </p>
 
 <h1 align="center">wa-categorizer</h1>
