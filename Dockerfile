@@ -1,5 +1,5 @@
 # wa-categorizer — production image
-FROM node:22-alpine
+FROM node:26-alpine
 
 # ffmpeg is only needed by the "command" transcription backend (local
 # whisper). With the "openai" backend (Groq) you can drop this line and
