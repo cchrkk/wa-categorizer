@@ -39,5 +39,12 @@ ENV NODE_ENV=production \
 
 VOLUME ["/app/data"]
 
+# Legge data/health.json, scritto dal processo vivo. Se non siamo connessi, o se
+# stiamo ricevendo messaggi che non riusciamo a decifrare, il container risulta
+# unhealthy: si vede da `docker ps` e da un pannello di gestione, senza dover
+# leggere i log.
+HEALTHCHECK --interval=60s --timeout=10s --start-period=90s --retries=3 \
+    CMD ["node", "src/index.js", "--health"]
+
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 CMD ["node", "src/index.js"]

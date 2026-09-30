@@ -29,6 +29,52 @@ After 4 attempts the program stops by itself instead of continuing the fight, an
 The client now **always closes the previous socket** before opening a new one — the absence
 of that close was what generated the loop in the first place.
 
+## Messages that cannot be decrypted
+
+The logs fill with stack traces like these:
+
+```
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at async 198264414552088.0 [as awaitable] (session_cipher.js:171:28)
+```
+
+The part that matters is the **address on the last line**: `198264414552088` is an account and
+`.0` is one of its devices. The signal session with that device is out of step, so WhatsApp
+keeps resending and the check keeps failing. It is not a configuration problem, and those
+messages cannot be recovered: they arrive, and they cannot be read.
+
+How to size it up:
+
+- **one address only** → that conversation is affected, everything else keeps working;
+- **every message fails** → the instance is effectively deaf;
+- `npm run health` says how many in the last ten minutes, and whether the container should be
+  considered unhealthy.
+
+The fix for a session out of step, **with the program stopped** — while it runs it rewrites the
+file from memory and the delete is pointless:
+
+```bash
+docker compose stop
+mv data/auth/session-198264414552088.0.json /tmp/     # the address from the error, without ".0" if you prefer
+docker compose start
+```
+
+It renegotiates from the public key and WhatsApp answers with a fresh prekey message.
+`creds.json` is not touched: the device stays linked.
+
+If it comes back, or several sessions fail at once, re-pair instead: stop, move `data/auth/`
+aside, start, scan the QR from *Linked devices*. Rules, logs, contacts and media live in
+`data/` and stay.
+
+**Why it happens**: your account is linked on more than one device and the same session
+advances on both sides. A restart with messages queued, or a client that starts *sending*
+after only ever reading, is enough to step them out of order.
+
+> libsignal prints those errors with `console.error` directly, so they ignore `LOG_LEVEL` and
+> the structured logger. The program intercepts them and counts them instead: one line with a
+> number every thirty seconds, and the counters in `data/health.json`.
+
 ## A rule never fires and the file looks fine
 
 First: is the file **valid YAML**? If you save it broken (a repeated key, wrong indentation)

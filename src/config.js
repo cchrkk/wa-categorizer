@@ -58,6 +58,12 @@ export const env = {
    */
   allowReply: String(process.env.ALLOW_REPLY ?? 'false').toLowerCase() === 'true',
 
+  /**
+   * Avviso su Telegram quando l'healthcheck peggiora (messaggi non decifrabili,
+   * connessione persa). Al massimo uno all'ora, e serve Telegram configurato.
+   */
+  healthNotify: String(process.env.HEALTH_NOTIFY ?? 'true').toLowerCase() === 'true',
+
   webEnabled: String(process.env.WEB_ENABLED ?? 'false').toLowerCase() === 'true',
   webPort: Number(process.env.WEB_PORT || 8099),
   webBind: process.env.WEB_BIND || '127.0.0.1',

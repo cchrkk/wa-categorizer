@@ -75,6 +75,25 @@ To update:
 docker compose pull && docker compose up -d
 ```
 
+### Is it healthy?
+
+The image carries a `HEALTHCHECK`, so `docker ps` shows `healthy` / `unhealthy` without
+anyone reading a log. The same judgement is one command away:
+
+```bash
+docker compose exec wa-categorizer node src/index.js --health
+# wa-categorizer: healthy — connected=true paired=true messages=42 undecryptable(10m)=0
+```
+
+It reads `data/health.json`, which the running process keeps up to date, and it says unhealthy
+when the instance is paired but not connected, when the snapshot has stopped being updated,
+or when messages are arriving that it cannot decrypt — see
+[troubleshooting](troubleshooting.md#messages-that-cannot-be-decrypted).
+
+With `HEALTH_NOTIFY=true` (the default, and it needs the Telegram settings) the same condition
+sends a Telegram message instead of waiting for somebody to look: **at most one an hour**, so
+a bad night does not fill your phone.
+
 The data volume stays, so **there is no QR to scan again**.
 
 ### Public image

@@ -13,6 +13,7 @@ import { directory, flushContacts } from './contacts.js';
 import { sweepMedia } from './media.js';
 import { startWeb } from './web.js';
 import { buildTestMessage } from './testkit.js';
+import { markConnected, markMessage, runHealth, startHealth } from './health.js';
 
 const argv = process.argv.slice(2);
 const hasFlag = (f) => argv.includes(f);
@@ -28,6 +29,7 @@ Usage:
   npm start                     connects to WhatsApp (QR on first run) and listens
   npm start -- --login          same as above, explicit
   npm start -- --check          validates config/rules.yaml and the environment, then exits
+  npm start -- --health         says whether the running instance is healthy (it is the container healthcheck)
   npm run contacts              shows the jids, LIDs and names it knows
   npm start -- --simulate FILE  runs a fake message through the rule engine (dry run)
   npm start -- --simulate FILE --live   same, but really runs the actions
@@ -301,6 +303,12 @@ async function main() {
     return;
   }
 
+  // Healthcheck, prima di caricare la configurazione: deve dire se il processo
+  // VIVO sta facendo il suo lavoro (connesso e capace di leggere), non se il
+  // file delle regole è valido — per quello c'è --check. Legge solo un file,
+  // quindi non si connette a niente ed è sicuro da chiamare ogni minuto.
+  if (hasFlag('--health')) process.exit(runHealth());
+
   // --config: file di regole alternativo (yaml o json)
   paths.rulesFile = resolveRulesFile(flagValue('--config'));
 
@@ -420,15 +428,22 @@ async function main() {
     logger.info('web panel disabled (WEB_ENABLED=true to turn it on)');
   }
 
+  // Da qui in poi possono arrivare messaggi: il watcher deve essere installato
+  // prima, o i primi fallimenti di decifratura non li conta nessuno.
+  startHealth();
+
   const client = startWhatsApp({
     allowReply: config.settings.allowReply,
     onState: (s, code) => {
+      // la salute tiene il conto della connessione: è quello che legge --health
+      markConnected(s === 'open', s);
       // 'open' e 'close' sono già raccontati da whatsapp.js: qui solo il resto,
       // e i casi gravi, per non avere tre righe per ogni caduta di rete.
       if (s === 'loggedOut' || s === 'fatal') logger.error({ code }, 'connection: session closed by WhatsApp');
       else logger.debug({ state: s, code }, 'connection state');
     },
     onMessage: async (msg, { sock, downloadMedia }) => {
+      markMessage();
       await handleMessage({
         config,
         msg,

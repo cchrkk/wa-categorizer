@@ -63,6 +63,7 @@ by far the fastest way to understand what you are doing.
 | **Contacts** | keeps LIDs, phone numbers and names together: WhatsApp is migrating to anonymous IDs and your jids keep working |
 | **Web panel** | rule editor that validates before saving, plus a test bench |
 | **Docker** | public image on GHCR, deploy without building |
+| **Health** | the container reports `unhealthy` when it stops reading, with a Telegram alert |
 
 ---
 
