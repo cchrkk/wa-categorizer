@@ -7,8 +7,9 @@
 // If OPENAI_API_KEY is configured, it also tests transcribing a voice note.
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { paths, loadConfig } from '../src/config.js';
-import { startWeb } from '../src/web.js';
+import { startWeb, detab } from '../src/web.js';
 import { _state } from '../src/contacts.js';
 
 const PORT = Number(process.env.SMOKE_PORT || 8199);
@@ -167,6 +168,17 @@ try {
     assert(t.includes('export function highlight'), 'that is not the right module');
   });
 
+  await check('the inline panel script parses', async () => {
+    // Nothing else looks at the script inside ui.html: a stray bracket there
+    // takes the whole panel down and no test notices.
+    const html = await (await fetch(`${base}/`)).text();
+    const m = html.match(/<script type="module">([\s\S]*?)<\/script>/);
+    assert(m, 'the page has no module script');
+    const tmp = path.join(dir, 'ui-inline.mjs');
+    fs.writeFileSync(tmp, m[1], 'utf8');
+    execFileSync(process.execPath, ['--check', tmp], { stdio: 'pipe' });
+  });
+
   await check('GET /logo.svg serves the icon', async () => {
     const r = await fetch(`${base}/logo.svg`);
     const t = await r.text();
@@ -195,6 +207,36 @@ try {
     }));
     assert(status === 200, `status ${status}: ${body.error || ''}`);
     assert(body.rules > 0, 'no rules active after saving');
+  });
+
+  console.log('  · a tab as indentation (invisible in the editor, rejected by YAML)');
+
+  await check('detab converts the tabs it finds and counts the lines', () => {
+    const r = detab('rules:\n\t- id: a\n  name: b\n');
+    assert(r.text === 'rules:\n  - id: a\n  name: b\n', `unexpected result: ${JSON.stringify(r.text)}`);
+    assert(r.converted === 1, `converted should be 1, it is ${r.converted}`);
+  });
+
+  await check('detab leaves a tab inside a line alone', () => {
+    const r = detab('a: "keep\tthis"\n\tb: 1\n');
+    assert(r.text.startsWith('a: "keep\tthis"'), 'it touched a tab inside a string');
+    assert(r.converted === 1, `converted should be 1, it is ${r.converted}`);
+  });
+
+  await check('PUT /api/rules turns tab indentation into spaces instead of refusing', async () => {
+    const good = fs.readFileSync(rules, 'utf8');
+    const withTab = good.replace('\n  - id: orders-text', '\n\t- id: orders-text');
+    assert(withTab !== good, 'the fixture does not contain the line this check needs');
+    const { status, body } = await j(await fetch(`${base}/api/rules`, {
+      method: 'PUT',
+      headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ yaml: withTab }),
+    }));
+    assert(status === 200, `status ${status}: ${body.error || ''}`);
+    assert(body.tabsConverted === 1, `tabsConverted should be 1, it is ${body.tabsConverted}`);
+    const after = fs.readFileSync(rules, 'utf8');
+    assert(!/\t/.test(after), 'a tab still went to disk');
+    assert(after.includes('\n  - id: orders-text'), 'the indentation did not come back as spaces');
   });
 
   if (process.env.OPENAI_API_KEY) {

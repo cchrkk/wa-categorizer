@@ -113,6 +113,25 @@ function readRulesFile() {
   }
 }
 
+/**
+ * YAML forbids a tab as indentation, and a tab is invisible in a textarea: the
+ * mistake only surfaces when the save is refused, with a message about line 210
+ * and no way to see what is wrong there. Expanding the leading tabs to spaces
+ * removes the whole class of problem; the caller says how many lines changed.
+ *
+ * Only the whitespace in front of the first character of a line is touched: a
+ * tab inside a line (in a string, or in a block scalar) is legal content and
+ * stays exactly where it is.
+ */
+export function detab(yamlText, size = 2) {
+  let converted = 0;
+  const text = String(yamlText ?? '').replace(/^([ \t]*\t)(?=\S)/gm, (lead) => {
+    converted += 1;
+    return lead.replace(/\t/g, ' '.repeat(size));
+  });
+  return { text, converted };
+}
+
 /** Scrive le regole in modo atomico, tenendo una copia di quelle precedenti. */
 function writeRulesFile(yamlText) {
   const dir = path.dirname(paths.rulesFile);
@@ -210,13 +229,18 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
           return;
         }
 
+        // Un tab come indentazione è invisibile e YAML lo rifiuta: lo si
+        // trasforma in spazi prima di validare, così l'errore al rigo 210 non
+        // blocca più nessuno. Quanti ne sono cambiati lo dice la risposta.
+        const { text: yamlText, converted: tabsConverted } = detab(parsed.yaml);
+
         // Valida su un file temporaneo: se è rotto, l'originale non viene toccato.
         // È la difesa che oggi mancava: una chiave duplicata scritta a mano è
         // arrivata su disco e l'app ha continuato con le regole vecchie.
         // L'estensione conta: config.js sceglie YAML o JSON da lì.
         const est = path.extname(paths.rulesFile) || '.yaml';
         const probe = `${paths.rulesFile}.probe${est}`;
-        fs.writeFileSync(probe, parsed.yaml, 'utf8');
+        fs.writeFileSync(probe, yamlText, 'utf8');
         let valida;
         try {
           valida = loadConfig(probe);
@@ -229,14 +253,14 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
 
         // dryRun = solo controllo: non scrive niente su disco
         if (parsed.dryRun) {
-          send(res, 200, { ok: true, validated: true, rules: valida.rules.length });
+          send(res, 200, { ok: true, validated: true, rules: valida.rules.length, tabsConverted });
           return;
         }
 
-        writeRulesFile(parsed.yaml);
+        writeRulesFile(yamlText);
         const config = await reload();
-        log.info({ rules: config.rules.length }, 'rules saved from the panel');
-        send(res, 200, { ok: true, rules: config.rules.length });
+        log.info({ rules: config.rules.length, tabsConverted }, 'rules saved from the panel');
+        send(res, 200, { ok: true, rules: config.rules.length, tabsConverted });
         return;
       }
 

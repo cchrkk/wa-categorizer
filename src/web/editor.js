@@ -133,7 +133,7 @@ export function indentBlock(value, selFrom, selTo, direction) {
 
   const updated = direction > 0
     ? lines.map((l) => (l === '' ? l : `  ${l}`))
-    : lines.map((l) => l.replace(/^ {1,2}/, ''));
+    : lines.map((l) => l.replace(/^[ \t]{1,2}/, ''));
 
   const next = updated.join('\n');
   if (next === block) return null;

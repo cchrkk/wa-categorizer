@@ -117,6 +117,11 @@ check('Shift+Tab removes the indentation', () => {
   eq(apply(v, indentBlock(v, 6, 6, -1)), '  name: value');
 });
 
+check('Shift+Tab also removes a tab used as indentation', () => {
+  const v = '\tname: value';
+  eq(apply(v, indentBlock(v, 1, 1, -1)), 'name: value');
+});
+
 check('Shift+Tab on an unindented line changes nothing', () => {
   eq(indentBlock('name: value', 0, 0, -1), null);
 });

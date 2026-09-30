@@ -359,6 +359,12 @@ $('token').value = token();
 
 $('btn-reload').onclick = load;
 
+// A tab used as indentation is invisible in the editor and YAML rejects it:
+// the server converts it to spaces, and it is worth saying so.
+function tabsNote(r) {
+  return r.tabsConverted ? ` ${r.tabsConverted} line(s) were indented with a tab and have been converted to spaces.` : '';
+}
+
 // "Validate only": checks without writing to disk (dryRun on the server side).
 $('btn-validate').onclick = async () => {
   message('rules-result', '', '');
@@ -367,7 +373,7 @@ $('btn-validate').onclick = async () => {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ yaml: yamlEl.value, dryRun: true }),
     });
-    message('rules-result', 'ok', 'Valid YAML: ' + r.rules + ' rules active. Nothing was saved.');
+    message('rules-result', 'ok', 'Valid YAML: ' + r.rules + ' rules active. Nothing was saved.' + tabsNote(r));
   } catch (e) {
     message('rules-result', 'err', e.message);
   }
@@ -380,7 +386,7 @@ $('btn-save').onclick = async () => {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ yaml: yamlEl.value }),
     });
-    message('rules-result', 'ok', 'Saved: ' + r.rules + ' rules active.');
+    message('rules-result', 'ok', 'Saved: ' + r.rules + ' rules active.' + tabsNote(r));
     await load();
   } catch (e) {
     message('rules-result', 'err', 'Not saved — the YAML is invalid, the file on disk was not touched:\n' + e.message);
