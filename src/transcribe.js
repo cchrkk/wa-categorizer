@@ -27,7 +27,7 @@ export function assertTranscribeReady() {
     if (!env.transcribeCommand) throw new Error('TRANSCRIBE_BACKEND=command ma TRANSCRIBE_COMMAND è vuoto');
     return b;
   }
-  throw new Error(`TRANSCRIBE_BACKEND sconosciuto: "${b}" (usa none|openai|command)`);
+  throw new Error(`unknown TRANSCRIBE_BACKEND: "${b}" (usa none|openai|command)`);
 }
 
 /** Converte in wav 16kHz mono con ffmpeg. Ritorna il percorso del wav. */
@@ -48,7 +48,7 @@ async function transcribeCommand(inputFile) {
     try {
       wav = await toWav(inputFile);
     } catch (err) {
-      log.warn({ err: err.message }, 'ffmpeg non disponibile o conversione fallita: passo il file originale');
+      log.warn({ err: err.message }, 'ffmpeg unavailable or conversion failed: passing the original file');
       wav = inputFile;
     }
   }
@@ -63,7 +63,7 @@ async function transcribeCommand(inputFile) {
     windowsHide: true,
   });
   if (stderr && !stdout.trim()) {
-    log.debug({ stderr: stderr.slice(0, 500) }, 'stderr del comando di trascrizione');
+    log.debug({ stderr: stderr.slice(0, 500) }, 'stderr from the transcription command');
   }
   return cleanTranscript(stdout);
 }
@@ -83,7 +83,7 @@ async function transcribeOpenAI(inputFile) {
     signal: AbortSignal.timeout(COMMAND_TIMEOUT_MS),
   });
   if (!res.ok) {
-    throw new Error(`trascrizione HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    throw new Error(`transcription HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
   }
   const data = await res.json();
   return cleanTranscript(data.text || '');
@@ -104,10 +104,10 @@ function cleanTranscript(raw) {
  */
 export async function transcribe(file) {
   if (env.transcribeBackend === 'none') {
-    log.info('trascrizione disattivata (TRANSCRIBE_BACKEND=none)');
+    log.info('transcription disabled (TRANSCRIBE_BACKEND=none)');
     return null;
   }
-  if (!file || !fs.existsSync(file)) throw new Error(`file audio non trovato: ${file}`);
+  if (!file || !fs.existsSync(file)) throw new Error(`audio file not found: ${file}`);
 
   const started = Date.now();
   const text =
@@ -115,7 +115,7 @@ export async function transcribe(file) {
       ? await transcribeOpenAI(file)
       : await transcribeCommand(file);
   const ms = Date.now() - started;
-  log.info({ ms, chars: text.length, backend: env.transcribeBackend }, 'vocale trascritto');
+  log.info({ ms, chars: text.length, backend: env.transcribeBackend }, 'voice note transcribed');
   if (!text) return { text: '', backend: env.transcribeBackend, ms };
   return { text, backend: env.transcribeBackend, ms };
 }

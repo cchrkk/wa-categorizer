@@ -96,14 +96,14 @@ function readJsonFile(file, fallback) {
     raw = fs.readFileSync(file, 'utf8');
   } catch (err) {
     if (err.code === 'ENOENT') return fallback;
-    throw new Error(`Impossibile leggere ${file}: ${err.message}`);
+    throw new Error(`Cannot read ${file}: ${err.message}`);
   }
   try {
     if (/\.ya?ml$/i.test(file)) return YAML.parse(raw) ?? fallback;
     return JSON.parse(raw);
   } catch (err) {
     const format = /\.ya?ml$/i.test(file) ? 'YAML' : 'JSON';
-    throw new Error(`${path.basename(file)}: ${format} non valido → ${err.message}`);
+    throw new Error(`${path.basename(file)}: ${format} invalid → ${err.message}`);
   }
 }
 
@@ -111,18 +111,18 @@ function normalizeRule(rule, index) {
   const id = rule.id || `rule-${index}`;
   const errors = [];
   if (!rule.match || typeof rule.match !== 'object') {
-    errors.push(`regola "${id}": manca "match"`);
+    errors.push(`rule "${id}": missing "match"`);
   }
   if (!Array.isArray(rule.actions) || rule.actions.length === 0) {
-    errors.push(`regola "${id}": manca "actions"`);
+    errors.push(`rule "${id}": missing "actions"`);
   }
   for (const [i, a] of (rule.actions || []).entries()) {
     if (!a || typeof a.type !== 'string') {
-      errors.push(`regola "${id}": azione #${i} senza "type"`);
+      errors.push(`rule "${id}": action #${i} without "type"`);
     }
   }
   if (rule.markRead === true) {
-    errors.push(`regola "${id}": "markRead" non è supportato — il progetto è in modalità solo lettura`);
+    errors.push(`rule "${id}": "markRead" is not supported — the project is in read-only mode`);
   }
   return {
     id,
@@ -160,7 +160,7 @@ function loadRuleDir(dir) {
       continue;
     }
     if (!Array.isArray(conf.rules)) {
-      if (conf.rules !== undefined) out.warnings.push(`${nome}: "rules" deve essere una lista, ignorato`);
+      if (conf.rules !== undefined) out.warnings.push(`${nome}: "rules" deve essere una lista, ignored`);
       continue;
     }
     if (conf.settings) out.warnings.push(`${nome}: "settings" viene ignorato (sta solo nel file principale)`);
@@ -173,7 +173,7 @@ function loadRuleDir(dir) {
 export function loadConfig(file = paths.rulesFile) {
   const fileConf = readJsonFile(file, { settings: {}, rules: [] });
   if (!Array.isArray(fileConf.rules)) {
-    throw new Error(`${path.basename(file)}: "rules" deve essere una lista`);
+    throw new Error(`${path.basename(file)}: "rules" must be a list`);
   }
 
   const sparse = loadRuleDir(paths.rulesDir);
@@ -185,7 +185,7 @@ export function loadConfig(file = paths.rulesFile) {
 
   const errors = rules.flatMap((r) => r.errors);
   if (errors.length) {
-    throw new Error(`Config non valida:\n  - ${errors.join('\n  - ')}`);
+    throw new Error(`Invalid configuration:\n  - ${errors.join('\n  - ')}`);
   }
 
   // readOnly è una invariante: qualunque azione che scrive su WhatsApp è forzata off.
@@ -223,5 +223,5 @@ export function describeRule(rule) {
   if (m.self != null) bits.push(`self=${m.self}`);
   if (m.type) bits.push(`tipo=${fmt(m.type)}`);
   if (m.textMatch) bits.push(`testo~"${fmt(m.textMatch)}"`);
-  return bits.join('  ') || '(match sempre)';
+  return bits.join('  ') || '(matches everything)';
 }

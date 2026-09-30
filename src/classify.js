@@ -10,27 +10,27 @@ const log = childLogger('classify');
 export async function classify({ text, labels, model, context = '' }) {
   if (!text || !labels?.length) return null;
   if (!env.openaiKey) {
-    log.warn('rule.classify richiesto ma OPENAI_API_KEY è vuota: salto la classificazione');
+    log.warn('rule.classify requested but OPENAI_API_KEY is empty: skipping classification');
     return null;
   }
 
   const prompt = [
-    'Sei un classificatore di messaggi WhatsApp. Rispondi SOLO con JSON valido.',
-    `Etichette possibili: ${labels.join(', ')}.`,
-    'Se nessuna etichetta è adatta, usa "nessuna".',
-    'Formato: {"label":"...","confidence":0.0-1.0,"reason":"breve"}',
-    context ? `Contesto: ${context}` : '',
-    `Messaggio: """${text.slice(0, 4000)}"""`,
+    'You are a WhatsApp message classifier. Reply with valid JSON only.',
+    `Possible labels: ${labels.join(', ')}.`,
+    'If no label fits, use "none".',
+    'Format: {"label":"...","confidence":0.0-1.0,"reason":"short"}',
+    context ? `Context: ${context}` : '',
+    `Message: """${text.slice(0, 4000)}"""`,
   ]
     .filter(Boolean)
     .join('\n');
 
   try {
     const result = await requestClassification({ text, labels, model, prompt });
-    log.info(result, 'classificazione');
+    log.info(result, 'classification');
     return result;
   } catch (err) {
-    log.warn({ err: err.message }, 'classificazione fallita, la regola non filtra');
+    log.warn({ err: err.message }, 'classification failed, the rule does not filter');
     return null;
   }
 }
@@ -66,7 +66,7 @@ async function requestClassification({ model, prompt }) {
   const content = data.choices?.[0]?.message?.content || '';
   const parsed = parseJsonLoose(content);
   return {
-    label: String(parsed.label || 'nessuna').toLowerCase(),
+    label: String(parsed.label || 'none').toLowerCase(),
     confidence: Number(parsed.confidence ?? 0.5),
     reason: parsed.reason || '',
   };
@@ -78,6 +78,6 @@ function parseJsonLoose(content) {
     return JSON.parse(content);
   } catch { /* provo a estrarre */ }
   const match = String(content).match(/\{[\s\S]*\}/);
-  if (!match) throw new Error(`risposta non in JSON: ${String(content).slice(0, 120)}`);
+  if (!match) throw new Error(`response is not JSON: ${String(content).slice(0, 120)}`);
   return JSON.parse(match[0]);
 }

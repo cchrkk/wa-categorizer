@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -38,7 +38,7 @@
     background: #0f1115; color: var(--txt); border: 1px solid var(--line);
     border-radius: 7px; padding: 7px 9px; font-size: 13px; width: 100%;
   }
-  textarea.comune {
+  textarea.plain {
     width: 100%; background: #0f1115; color: var(--txt); border: 1px solid var(--line);
     border-radius: 8px; padding: 12px; font-size: 13px; resize: vertical;
   }
@@ -56,23 +56,23 @@
   .b.ok { background: #16302a; color: var(--ok); border: 1px solid #245c4c; }
   .b.ko { background: #2a1a1c; color: var(--ko); border: 1px solid #55272b; }
   code { background: #0f1115; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
-  .trasc { background: #0f1115; border: 1px solid var(--line); border-radius: 7px; padding: 10px; margin: 8px 0; font-size: 13px; }
+  .transcript { background: #0f1115; border: 1px solid var(--line); border-radius: 7px; padding: 10px; margin: 8px 0; font-size: 13px; }
   .dim { color: var(--dim); font-size: 12px; }
   .drop { border: 1px dashed var(--line); border-radius: 8px; padding: 18px; text-align: center; color: var(--dim); cursor: pointer; }
   .drop.over { border-color: var(--accent); color: var(--accent); }
   details { margin-top: 14px; }
   summary { cursor: pointer; color: var(--dim); font-size: 12px; }
 
-  /* --- editor con evidenziazione -------------------------------------
-     Un <pre> colorato sta sotto e un <textarea> trasparente sopra: si edita
-     con il textarea nativo (undo, selezione, IME) ma si vede il testo
-     colorato.
+  /* --- editor with highlighting --------------------------------------
+     A coloured <pre> sits underneath and a transparent <textarea> on top:
+     you edit with the native textarea (undo, selection, IME) but you see
+     the coloured text.
 
-     Il punto delicato è che le due copie vadano a capo nello STESSO punto:
-     il textarea perde la larghezza della sua barra di scorrimento, quindi al
-     <pre> va tolta la stessa larghezza (lo fa il JS con paddingRight).
-     Senza, il testo scorre rispetto alla selezione: è il difetto che si
-     vedeva selezionando. */
+     The delicate part is that the two copies must wrap at the SAME point:
+     the textarea loses the width of its scrollbar, so the <pre> has to lose
+     the same width (the JS does it with paddingRight). Without that, the
+     text drifts relative to the selection: that is the defect you could see
+     when selecting. */
   .editor {
     display: flex; height: 46vh; min-height: 220px; overflow: hidden;
     background: #0f1115; border: 1px solid var(--line); border-radius: 8px;
@@ -83,7 +83,7 @@
     font: 13px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace;
     user-select: none;
   }
-  .gutter > .numeri { position: absolute; inset: 0 auto auto 0; width: 100%; }
+  .gutter > .lines { position: absolute; inset: 0 auto auto 0; width: 100%; }
   .gutter b {
     position: absolute; right: 9px; font-weight: normal;
     font: 13px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -96,12 +96,12 @@
     white-space: pre-wrap; overflow-wrap: break-word; tab-size: 2;
     border: 0; border-radius: 0; background: transparent;
   }
-  /* overflow hidden: non serve una seconda barra, lo scorrimento lo detta il JS */
+  /* overflow hidden: a second scrollbar is not needed, the JS drives scrolling */
   .codewrap > .highlight { overflow: hidden; pointer-events: none; user-select: none; }
-  .highlight .riga { min-height: 1.55em; }
+  .highlight .line { min-height: 1.55em; }
   .codewrap > textarea { overflow: auto; resize: none; outline: none; color: transparent; caret-color: var(--txt); }
   .codewrap > textarea::placeholder { color: #4b525d; }
-  /* selezione traslucida: sotto c'è il testo colorato, non va coperto */
+  /* translucent selection: the coloured text is underneath and must stay readable */
   .codewrap > textarea::selection { background: rgba(110, 168, 254, .32); }
 
   .t-key { color: #7fb2ff; }
@@ -117,17 +117,17 @@
 <body>
 <header>
   <h1>wa-categorizer</h1>
-  <span class="dim" id="stato">…</span>
+  <span class="dim" id="status">…</span>
   <span class="sp"></span>
-  <input type="text" id="token" placeholder="token del pannello" style="width:210px" autocomplete="off">
-  <button id="btn-connetti">Connetti</button>
+  <input type="text" id="token" placeholder="panel token" style="width:210px" autocomplete="off">
+  <button id="btn-connect">Connect</button>
 </header>
 
 <main>
   <section>
-    <h2>Regole · <span id="file-regole" class="dim"></span></h2>
+    <h2>Rules · <span id="rules-file" class="dim"></span></h2>
     <div class="editor">
-      <div class="gutter" id="gutter"><div class="numeri" id="numeri"></div></div>
+      <div class="gutter" id="gutter"><div class="lines" id="lines"></div></div>
       <div class="codewrap">
         <pre class="highlight" id="hl" aria-hidden="true"></pre>
         <textarea id="yaml" spellcheck="false" autocapitalize="off" autocorrect="off"
@@ -135,196 +135,196 @@
       </div>
     </div>
     <div class="row" style="margin-top:6px">
-      <span class="dim">Tab e Shift+Tab indentano · Invio mantiene il rientro</span>
+      <span class="dim">Tab and Shift+Tab indent · Enter keeps the indentation</span>
       <span class="dim" id="dirty"></span>
       <span class="dim" id="diag" style="display:none"></span>
     </div>
     <div class="row">
-      <button class="primary" id="btn-salva">Salva</button>
-      <button id="btn-valida">Solo valida</button>
-      <button id="btn-ricarica">Ricarica dal disco</button>
+      <button class="primary" id="btn-save">Save</button>
+      <button id="btn-validate">Validate only</button>
+      <button id="btn-reload">Reload from disk</button>
     </div>
-    <div id="esito-regole"></div>
+    <div id="rules-result"></div>
     <details>
-      <summary>Regole attive adesso</summary>
-      <table id="tab-regole"></table>
+      <summary>Rules currently active</summary>
+      <table id="rules-table"></table>
     </details>
   </section>
 
   <section>
-    <h2>Prova una regola</h2>
+    <h2>Test a rule</h2>
     <div class="grid2">
       <div><label>Chat</label><input type="text" id="chat" placeholder="Orders"></div>
-      <div><label>Mittente</label><input type="text" id="sender" placeholder="Mario"></div>
+      <div><label>Sender</label><input type="text" id="sender" placeholder="Mario"></div>
     </div>
 
     <div class="row">
-      <button class="primary" id="btn-prova-testo">Prova testo</button>
-      <button id="btn-prova-audio">Prova vocale</button>
+      <button class="primary" id="btn-test-text">Test text</button>
+      <button id="btn-test-audio">Test voice note</button>
     </div>
     <div class="row">
-      <textarea class="comune" id="testo" style="height:70px" placeholder="testo del messaggio da provare (per &quot;Prova testo&quot;)"></textarea>
+      <textarea class="plain" id="test-text" style="height:70px" placeholder="message text to test (for &quot;Test text&quot;)"></textarea>
     </div>
 
-    <div class="drop" id="drop">Trascina qui un vocale (.ogg / .opus / .m4a) — oppure clicca<br>
-      <span class="dim">viene trascritto con lo stesso motore dei vocali veri</span></div>
+    <div class="drop" id="drop">Drop a voice note here (.ogg / .opus / .m4a) — or click<br>
+      <span class="dim">it is transcribed with the same engine real voice notes use</span></div>
     <input type="file" id="file" accept="audio/*" style="display:none">
 
-    <div id="esito-prova"></div>
+    <div id="test-result"></div>
   </section>
 </main>
 
 <script type="module">
-import { highlight, indentBlock, autoIndentRiga, escapeHtml as esc } from './editor.js';
+import { highlight, indentBlock, autoIndentLine, escapeHtml as esc } from './editor.js';
 
 const $ = (id) => document.getElementById(id);
-let yamlOriginale = '';
+let originalYaml = '';
 
 const yamlEl = $('yaml');
 const hlEl = $('hl');
-const numeriEl = $('numeri');
-const mostraDiag = new URLSearchParams(location.search).has('diag');
+const linesEl = $('lines');
+const showDiag = new URLSearchParams(location.search).has('diag');
 
 function token() { return localStorage.getItem('wa_token') || ''; }
 
-async function api(percorso, opzioni = {}) {
-  const r = await fetch(percorso, {
-    ...opzioni,
-    headers: { 'Authorization': 'Bearer ' + token(), ...(opzioni.headers || {}) },
+async function api(path, options = {}) {
+  const r = await fetch(path, {
+    ...options,
+    headers: { 'Authorization': 'Bearer ' + token(), ...(options.headers || {}) },
   });
-  const tipo = r.headers.get('content-type') || '';
-  const dati = tipo.includes('json') ? await r.json() : await r.text();
-  if (!r.ok) throw new Error(typeof dati === 'object' ? (dati.error || r.statusText) : dati);
-  return dati;
+  const kind = r.headers.get('content-type') || '';
+  const data = kind.includes('json') ? await r.json() : await r.text();
+  if (!r.ok) throw new Error(typeof data === 'object' ? (data.error || r.statusText) : data);
+  return data;
 }
 
-function avviso(contenitore, tipo, testo) {
-  $(contenitore).innerHTML = '';
-  if (!testo) return;
+function message(container, kind, text) {
+  $(container).innerHTML = '';
+  if (!text) return;
   const d = document.createElement('div');
-  d.className = 'msg ' + tipo;
-  d.textContent = testo;
-  $(contenitore).appendChild(d);
+  d.className = 'msg ' + kind;
+  d.textContent = text;
+  $(container).appendChild(d);
 }
 
-function segnaDirty() {
-  $('dirty').textContent = yamlEl.value === yamlOriginale ? '' : '● modificato non salvato';
+function markDirty() {
+  $('dirty').textContent = yamlEl.value === originalYaml ? '' : '● modified, not saved';
 }
 
 /* ---------------- editor ---------------- */
 
-function sincronizzaScroll() {
+function syncScroll() {
   hlEl.scrollTop = yamlEl.scrollTop;
   hlEl.scrollLeft = yamlEl.scrollLeft;
-  // i numeri sono posizionati in assoluto: si spostano con una translate,
-  // così non serve che il contenitore sia scrollabile
-  numeriEl.style.transform = `translateY(${-yamlEl.scrollTop}px)`;
+  // the numbers are absolutely positioned: a translate moves them, so the
+  // container itself does not need to be scrollable
+  linesEl.style.transform = `translateY(${-yamlEl.scrollTop}px)`;
 }
 
 /**
- * Allinea la larghezza utile delle due copie.
- * Il textarea perde la larghezza della sua barra di scorrimento; il <pre> no,
- * quindi va a capo più tardi e le due copie si disallineano. Qui gli si toglie
- * esattamente la stessa larghezza.
+ * Align the usable width of the two copies.
+ * The textarea loses the width of its scrollbar; the <pre> does not, so it
+ * wraps later and the two copies drift apart. Here the <pre> loses exactly
+ * the same width.
  */
-function allineaLarghezza() {
-  const barra = yamlEl.offsetWidth - yamlEl.clientWidth;
-  hlEl.style.paddingRight = `${12 + barra}px`;
+function alignWidth() {
+  const scrollbar = yamlEl.offsetWidth - yamlEl.clientWidth;
+  hlEl.style.paddingRight = `${12 + scrollbar}px`;
 }
 
-function evidenziaOra() {
+function renderHighlight() {
   const r = highlight(yamlEl.value);
   hlEl.innerHTML = r.html;
-  allineaLarghezza();
+  alignWidth();
 
-  // numeri di riga: ogni riga può occupare più righe visive se va a capo.
-  // Si usa offsetTop di ciascun blocco, che è esatto: sommare gli
-  // offsetHeight (arrotondati all'intero) accumulerebbe errore e i numeri
-  // scivolerebbero rispetto al testo andando verso il fondo.
-  const pezzi = [];
-  const blocchi = hlEl.children;
-  for (let i = 0; i < blocchi.length; i++) {
-    pezzi.push(`<b style="top:${blocchi[i].offsetTop}px">${i + 1}</b>`);
+  // line numbers: a long line can occupy several visual rows when it wraps.
+  // offsetTop of each block is exact: summing offsetHeight (rounded to whole
+  // pixels) would accumulate error and the numbers would drift towards the
+  // bottom.
+  const parts = [];
+  const blocks = hlEl.children;
+  for (let i = 0; i < blocks.length; i++) {
+    parts.push(`<b style="top:${blocks[i].offsetTop}px">${i + 1}</b>`);
   }
-  numeriEl.innerHTML = pezzi.join('');
-  sincronizzaScroll();
+  linesEl.innerHTML = parts.join('');
+  syncScroll();
 
-  // Diagnostica dell'allineamento fra le due copie: si vede solo con ?diag=1.
-  // Serve a controllare che il livello colorato e il textarea abbiano la stessa
-  // altezza e la stessa larghezza utile, che è la condizione perché la
-  // selezione cada sulle parole giuste.
+  // Alignment diagnostic between the two copies: only shown with ?diag=1.
+  // It checks that the coloured layer and the textarea have the same height
+  // and the same usable width, which is what makes the selection land on the
+  // right words.
   const d = $('diag');
-  if (mostraDiag && d) {
-    const barra = yamlEl.offsetWidth - yamlEl.clientWidth;
-    let somma = 0;
-    for (const b of blocchi) somma += b.getBoundingClientRect().height;
-    d.textContent = `[barra=${barra} preW=${hlEl.clientWidth} taW=${yamlEl.clientWidth} sommaDiv=${Math.round(somma)} preH=${hlEl.scrollHeight} taH=${yamlEl.scrollHeight}]`;
+  if (showDiag && d) {
+    const scrollbar = yamlEl.offsetWidth - yamlEl.clientWidth;
+    let sum = 0;
+    for (const b of blocks) sum += b.getBoundingClientRect().height;
+    d.textContent = `[scrollbar=${scrollbar} preW=${hlEl.clientWidth} taW=${yamlEl.clientWidth} divSum=${Math.round(sum)} preH=${hlEl.scrollHeight} taH=${yamlEl.scrollHeight}]`;
   }
 }
 
-/** Scrive nel textarea preservando l'undo nativo del browser. */
-function scrivi(testo, da, a, selezioneDopo) {
-  yamlEl.setSelectionRange(da, a);
+/** Writes into the textarea preserving the browser's native undo. */
+function writeToEditor(text, from, to, selectionAfter) {
+  yamlEl.setSelectionRange(from, to);
   yamlEl.focus();
   let ok = false;
-  try { ok = document.execCommand('insertText', false, testo); } catch { ok = false; }
-  if (!ok) yamlEl.setRangeText(testo, da, a, 'end');
-  if (selezioneDopo) yamlEl.setSelectionRange(selezioneDopo[0], selezioneDopo[1]);
-  segnaDirty();
-  evidenziaOra();
+  try { ok = document.execCommand('insertText', false, text); } catch { ok = false; }
+  if (!ok) yamlEl.setRangeText(text, from, to, 'end');
+  if (selectionAfter) yamlEl.setSelectionRange(selectionAfter[0], selectionAfter[1]);
+  markDirty();
+  renderHighlight();
 }
 
-function indenta(direzione) {
-  const r = indentBlock(yamlEl.value, yamlEl.selectionStart, yamlEl.selectionEnd, direzione);
+function indent(direction) {
+  const r = indentBlock(yamlEl.value, yamlEl.selectionStart, yamlEl.selectionEnd, direction);
   if (!r) return;
-  scrivi(r.testo, yamlEl.selectionStart, yamlEl.selectionEnd, [r.da, r.a]);
+  writeToEditor(r.text, yamlEl.selectionStart, yamlEl.selectionEnd, [r.start, r.end]);
 }
 
 yamlEl.addEventListener('keydown', (ev) => {
   if (ev.key === 'Tab') {
     ev.preventDefault();
-    indenta(ev.shiftKey ? -1 : 1);
+    indent(ev.shiftKey ? -1 : 1);
     return;
   }
   if (ev.key === 'Enter' && !ev.shiftKey && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
     const s = yamlEl.selectionStart;
-    if (s !== yamlEl.selectionEnd) return; // con selezione lascia fare al browser
+    if (s !== yamlEl.selectionEnd) return; // with a selection, let the browser handle it
     ev.preventDefault();
-    const inizio = yamlEl.value.lastIndexOf('\n', s - 1) + 1;
-    scrivi('\n' + autoIndentRiga(yamlEl.value.slice(inizio, s)), s, s);
+    const lineStart = yamlEl.value.lastIndexOf('\n', s - 1) + 1;
+    writeToEditor('\n' + autoIndentLine(yamlEl.value.slice(lineStart, s)), s, s);
   }
 });
 
-yamlEl.addEventListener('input', () => { segnaDirty(); evidenziaOra(); });
-yamlEl.addEventListener('scroll', sincronizzaScroll);
-addEventListener('resize', sincronizzaScroll);
+yamlEl.addEventListener('input', () => { markDirty(); renderHighlight(); });
+yamlEl.addEventListener('scroll', syncScroll);
+addEventListener('resize', syncScroll);
 
-/* ---------------- regole ---------------- */
+/* ---------------- rules ---------------- */
 
-async function carica() {
+async function load() {
   try {
     const s = await api('/api/state');
-    // I fine riga CRLF della config non devono far sembrare il file
-    // "modificato" appena aperto: il textarea normalizza da solo.
-    const testo = String(s.yaml || '').replace(/\r\n/g, '\n');
-    yamlOriginale = testo;
-    yamlEl.value = testo;
-    evidenziaOra();
-    $('file-regole').textContent = s.rulesFile;
-    segnaDirty();
-    renderRegole(s.rules);
-    $('stato').textContent = s.rules.length + ' regole attive';
-    avviso('esito-regole', '', '');
+    // CRLF line endings must not make the file look "modified" as soon as it
+    // is opened: the textarea normalises them by itself.
+    const text = String(s.yaml || '').replace(/\r\n/g, '\n');
+    originalYaml = text;
+    yamlEl.value = text;
+    renderHighlight();
+    $('rules-file').textContent = s.rulesFile;
+    markDirty();
+    renderRules(s.rules);
+    $('status').textContent = s.rules.length + ' rules active';
+    message('rules-result', '', '');
   } catch (e) {
-    $('stato').textContent = 'non connesso';
-    avviso('esito-regole', 'err', e.message);
+    $('status').textContent = 'not connected';
+    message('rules-result', 'err', e.message);
   }
 }
 
-function renderRegole(regole) {
-  const t = $('tab-regole');
-  t.innerHTML = '<tr><th>id</th><th>prio</th><th>azioni</th></tr>';
-  for (const r of regole) {
+function renderRules(rules) {
+  const t = $('rules-table');
+  t.innerHTML = '<tr><th>id</th><th>prio</th><th>actions</th></tr>';
+  for (const r of rules) {
     const tr = document.createElement('tr');
     tr.innerHTML = '<td>' + esc(r.id) + '<br><span class="dim">' + esc(r.name) + '</span></td>' +
       '<td>' + r.priority + '</td><td class="dim">' + esc(r.actions.join(', ')) + '</td>';
@@ -332,98 +332,98 @@ function renderRegole(regole) {
   }
 }
 
-$('btn-connetti').onclick = () => {
+$('btn-connect').onclick = () => {
   localStorage.setItem('wa_token', $('token').value.trim());
-  carica();
+  load();
 };
 $('token').value = token();
 
-$('btn-ricarica').onclick = carica;
+$('btn-reload').onclick = load;
 
-// "Solo valida": controlla senza scrivere su disco (dryRun lato server).
-$('btn-valida').onclick = async () => {
-  avviso('esito-regole', '', '');
+// "Validate only": checks without writing to disk (dryRun on the server side).
+$('btn-validate').onclick = async () => {
+  message('rules-result', '', '');
   try {
     const r = await api('/api/rules', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ yaml: yamlEl.value, dryRun: true }),
     });
-    avviso('esito-regole', 'ok', 'YAML valido: ' + r.rules + ' regole attive. Niente è stato salvato.');
+    message('rules-result', 'ok', 'Valid YAML: ' + r.rules + ' rules active. Nothing was saved.');
   } catch (e) {
-    avviso('esito-regole', 'err', e.message);
+    message('rules-result', 'err', e.message);
   }
 };
 
-$('btn-salva').onclick = async () => {
-  avviso('esito-regole', '', '');
+$('btn-save').onclick = async () => {
+  message('rules-result', '', '');
   try {
     const r = await api('/api/rules', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ yaml: yamlEl.value }),
     });
-    avviso('esito-regole', 'ok', 'Salvato: ' + r.rules + ' regole attive.');
-    await carica();
+    message('rules-result', 'ok', 'Saved: ' + r.rules + ' rules active.');
+    await load();
   } catch (e) {
-    avviso('esito-regole', 'err', 'Non salvato — lo YAML non è valido, il file su disco non è stato toccato:\n' + e.message);
+    message('rules-result', 'err', 'Not saved — the YAML is invalid, the file on disk was not touched:\n' + e.message);
   }
 };
 
-/* ---------------- prove ---------------- */
+/* ---------------- test bench ---------------- */
 
-function renderEsito(dati) {
-  const c = $('esito-prova');
+function renderResult(data) {
+  const c = $('test-result');
   c.innerHTML = '';
 
-  if (dati.transcriptError) {
+  if (data.transcriptError) {
     const d = document.createElement('div');
     d.className = 'msg err';
-    d.textContent = 'trascrizione fallita: ' + dati.transcriptError;
+    d.textContent = 'transcription failed: ' + data.transcriptError;
     c.appendChild(d);
   }
-  if (dati.transcript) {
+  if (data.transcript) {
     const d = document.createElement('div');
-    d.className = 'trasc';
-    d.innerHTML = '<span class="dim">trascrizione</span><br>' + esc(dati.transcript);
+    d.className = 'transcript';
+    d.innerHTML = '<span class="dim">transcript</span><br>' + esc(data.transcript);
     c.appendChild(d);
   }
 
-  const riepilogo = document.createElement('div');
-  riepilogo.className = 'msg ' + (dati.matched.length ? 'ok' : 'warn');
-  riepilogo.textContent = dati.matched.length
-    ? 'Regole attivate: ' + dati.matched.join(', ')
-    : 'Nessuna regola attivata. Sotto vedi per ognuna quale criterio ha bloccato.';
-  c.appendChild(riepilogo);
+  const summary = document.createElement('div');
+  summary.className = 'msg ' + (data.matched.length ? 'ok' : 'warn');
+  summary.textContent = data.matched.length
+    ? 'Rules fired: ' + data.matched.join(', ')
+    : 'No rule fired. Below you can see, for each one, which criterion blocked it.';
+  c.appendChild(summary);
 
   const t = document.createElement('table');
-  t.innerHTML = '<tr><th></th><th>regola</th><th>perché</th></tr>';
-  for (const r of dati.rules) {
-    const perche = [];
+  t.innerHTML = '<tr><th></th><th>rule</th><th>why</th></tr>';
+  for (const r of data.rules) {
+    const why = [];
     if (r.matched) {
-      perche.push('tutti i criteri soddisfatti');
-      if (r.classify) perche.push('LLM: ' + r.classify.label + ' (' + r.classify.confidence + ')');
-      if (r.actions.length) perche.push('azioni: ' + r.actions.join(', '));
+      why.push('all criteria satisfied');
+      if (r.classify) why.push('LLM: ' + r.classify.label + ' (' + r.classify.confidence + ')');
+      if (r.actions.length) why.push('actions: ' + r.actions.join(', '));
     } else if (r.blockedByClassify) {
-      perche.push('scartata dalla classificazione: ' + (r.classify ? r.classify.label : '?'));
+      why.push('rejected by classification: ' + (r.classify ? r.classify.label : '?'));
     } else {
-      perche.push('fallisce: ' + r.failed.map((f) => '<code>' + esc(f) + '</code>').join(', '));
+      why.push('fails: ' + r.failed.map((f) => '<code>' + esc(f) + '</code>').join(', '));
     }
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + (r.matched ? '<span class="b ok">sì</span>' : '<span class="b ko">no</span>') + '</td>' +
-      '<td>' + esc(r.id) + '</td><td class="dim">' + perche.join(' · ') + '</td>';
+    tr.innerHTML = '<td>' + (r.matched ? '<span class="b ok">yes</span>' : '<span class="b ko">no</span>') + '</td>' +
+      '<td>' + esc(r.id) + '</td><td class="dim">' + why.join(' · ') + '</td>';
     t.appendChild(tr);
   }
   c.appendChild(t);
 
-  if (dati.actions && dati.actions.length) {
+  if (data.actions && data.actions.length) {
     const d = document.createElement('details');
     d.open = true;
-    d.innerHTML = '<summary>esito azioni (dry-run, niente è stato inviato)</summary>';
+    d.innerHTML = '<summary>action results (dry run, nothing was sent)</summary>';
     const t2 = document.createElement('table');
-    t2.innerHTML = '<tr><th>regola</th><th>azione</th><th>esito</th></tr>';
-    for (const a of dati.actions) {
+    t2.innerHTML = '<tr><th>rule</th><th>action</th><th>result</th></tr>';
+    for (const a of data.actions) {
       const tr = document.createElement('tr');
       tr.innerHTML = '<td>' + esc(a.rule) + '</td><td>' + esc(a.type) + '</td><td>' +
-        (a.ok ? '<span class="b ok">ok</span>' : '<span class="b ko">' + esc(a.error || 'errore') + '</span>') + '</td>';
+        (a.ok ? '<span class="b ok">ok</span>' : '<span class="b ko">' + esc(a.error || 'error') + '</span>') + '</td>';
       t2.appendChild(tr);
     }
     d.appendChild(t2);
@@ -431,7 +431,7 @@ function renderEsito(dati) {
   }
 }
 
-function parametriChat() {
+function chatParams() {
   const p = {};
   const chat = $('chat').value.trim();
   const sender = $('sender').value.trim();
@@ -440,24 +440,24 @@ function parametriChat() {
   return p;
 }
 
-async function esegui(percorso, opzioni) {
-  avviso('esito-prova', '', '');
-  $('btn-prova-testo').disabled = $('btn-prova-audio').disabled = true;
-  $('stato').textContent = 'provo…';
+async function run(path, options) {
+  message('test-result', '', '');
+  $('btn-test-text').disabled = $('btn-test-audio').disabled = true;
+  $('status').textContent = 'testing…';
   try {
-    renderEsito(await api(percorso, opzioni));
-    $('stato').textContent = 'pronto';
+    renderResult(await api(path, options));
+    $('status').textContent = 'ready';
   } catch (e) {
-    avviso('esito-prova', 'err', e.message);
-    $('stato').textContent = 'errore';
+    message('test-result', 'err', e.message);
+    $('status').textContent = 'error';
   } finally {
-    $('btn-prova-testo').disabled = $('btn-prova-audio').disabled = false;
+    $('btn-test-text').disabled = $('btn-test-audio').disabled = false;
   }
 }
 
-$('btn-prova-testo').onclick = () => esegui('/api/test', {
+$('btn-test-text').onclick = () => run('/api/test', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ ...parametriChat(), text: $('testo').value, type: 'text' }),
+  body: JSON.stringify({ ...chatParams(), text: $('test-text').value, type: 'text' }),
 });
 
 const drop = $('drop');
@@ -466,19 +466,19 @@ drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.ad
 drop.addEventListener('dragleave', () => drop.classList.remove('over'));
 drop.addEventListener('drop', (e) => {
   e.preventDefault(); drop.classList.remove('over');
-  if (e.dataTransfer.files[0]) mandaAudio(e.dataTransfer.files[0]);
+  if (e.dataTransfer.files[0]) sendAudio(e.dataTransfer.files[0]);
 });
-$('file').onchange = () => { if ($('file').files[0]) mandaAudio($('file').files[0]); };
-$('btn-prova-audio').onclick = () => $('file').click();
+$('file').onchange = () => { if ($('file').files[0]) sendAudio($('file').files[0]); };
+$('btn-test-audio').onclick = () => $('file').click();
 
-function mandaAudio(f) {
-  const p = new URLSearchParams({ ...parametriChat(), ext: (f.name.split('.').pop() || 'ogg').replace(/[^a-z0-9]/gi, '') });
-  esegui('/api/test-audio?' + p.toString(), {
+function sendAudio(f) {
+  const p = new URLSearchParams({ ...chatParams(), ext: (f.name.split('.').pop() || 'ogg').replace(/[^a-z0-9]/gi, '') });
+  run('/api/test-audio?' + p.toString(), {
     method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: f,
   });
 }
 
-if (token()) carica(); else $('stato').textContent = 'inserisci il token';
+if (token()) load(); else $('status').textContent = 'enter the token';
 </script>
 </body>
 </html>

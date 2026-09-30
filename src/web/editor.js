@@ -1,159 +1,160 @@
-// Logica dell'editor, separata dalla pagina per poterla testare davvero:
-// l'evidenziazione e il rientro non dipendono dal DOM.
+// Editor logic, kept away from the page so it can actually be tested:
+// highlighting, indentation and auto-indent do not depend on the DOM.
 
 export function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-// L'ordine nell'alternanza conta poco: il motore prende sempre la
-// corrispondenza più a sinistra, quindi un # dentro una stringa resta
-// dentro la stringa e non diventa un commento.
+// Order in the alternation matters little: the engine always takes the
+// leftmost match, so a # inside a string stays inside the string and does not
+// become a comment.
 const TOKEN = /(?<com>#[^\n]*)|(?<dq>"(?:[^"\\]|\\.)*")|(?<sq>'(?:[^']|'')*')|(?<ph>\{\{[^}]*\}\})|(?<bool>\b(?:true|false|yes|no|null|~)\b)|(?<num>-?\b\d+(?:\.\d+)?\b)/g;
 
-function highlightValue(testo) {
+function highlightValue(text) {
   let out = '';
-  let ultimo = 0;
+  let last = 0;
   let m;
   TOKEN.lastIndex = 0;
-  while ((m = TOKEN.exec(testo)) !== null) {
+  while ((m = TOKEN.exec(text)) !== null) {
     if (m[0] === '') { TOKEN.lastIndex += 1; continue; }
-    out += escapeHtml(testo.slice(ultimo, m.index));
+    out += escapeHtml(text.slice(last, m.index));
     const g = m.groups;
     const cls = g.com ? 't-com' : (g.dq || g.sq) ? 't-str' : g.ph ? 't-ph' : (g.bool || g.num) ? 't-num' : '';
     out += cls ? `<span class="${cls}">${escapeHtml(m[0])}</span>` : escapeHtml(m[0]);
-    ultimo = m.index + m[0].length;
+    last = m.index + m[0].length;
   }
-  return out + escapeHtml(testo.slice(ultimo));
+  return out + escapeHtml(text.slice(last));
 }
 
 /**
- * Colora un documento YAML. Ritorna l'HTML e la colonna dei numeri di riga.
+ * Colours a YAML document. Returns the HTML and the line-number column.
  *
- * Ogni riga è un <div>: serve a conoscerne l'altezza reale, perché con il
- * testo a capo una riga lunga occupa più righe visive e i numeri di riga
- * devono seguirla (altrimenti si disallineano appena una riga va a capo).
+ * Each line is a <div>: that is needed to know its real height, because with
+ * wrapping on, a long line occupies several visual rows and the line numbers
+ * have to follow it (otherwise they drift as soon as a line wraps).
  */
 export function highlight(yaml) {
-  const righe = String(yaml || '').split('\n');
+  const lines = String(yaml || '').split('\n');
   const html = [];
-  const numeri = [];
-  let dentroBlocco = false;
-  let indentPadre = -1;
+  const numbers = [];
+  let insideBlock = false;
+  let blockIndent = -1;
 
-  for (let i = 0; i < righe.length; i++) {
-    const riga = righe[i];
-    numeri.push(i + 1);
-    const indent = (riga.match(/^ */) || [''])[0].length;
-    const t = riga.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    numbers.push(i + 1);
+    const indent = (line.match(/^ */) || [''])[0].length;
+    const t = line.trim();
 
-    // dentro un blocco | o > : tutto ciò che è più indentato è stringa
-    if (dentroBlocco && (t === '' || indent > indentPadre)) {
-      html.push('<div class="riga">' + (t === '' ? '' : escapeHtml(riga.slice(0, indent)) + `<span class="t-block">${escapeHtml(riga.slice(indent))}</span>`) + '</div>');
+    // inside a | or > block: anything more indented is a string
+    if (insideBlock && (t === '' || indent > blockIndent)) {
+      html.push('<div class="line">' + (t === '' ? '' : escapeHtml(line.slice(0, indent)) + `<span class="t-block">${escapeHtml(line.slice(indent))}</span>`) + '</div>');
       continue;
     }
-    dentroBlocco = false;
+    insideBlock = false;
 
-    if (t === '') { html.push('<div class="riga"></div>'); continue; }
+    if (t === '') { html.push('<div class="line"></div>'); continue; }
     if (t.startsWith('#')) {
-      html.push('<div class="riga">' + escapeHtml(riga.slice(0, indent)) + `<span class="t-com">${escapeHtml(riga.slice(indent))}</span>` + '</div>');
+      html.push('<div class="line">' + escapeHtml(line.slice(0, indent)) + `<span class="t-com">${escapeHtml(line.slice(indent))}</span>` + '</div>');
       continue;
     }
 
-    let out = escapeHtml(riga.slice(0, indent));
+    let out = escapeHtml(line.slice(0, indent));
     let pos = indent;
 
-    const dopoIndent = riga.slice(pos);
-    if (dopoIndent === '-' || dopoIndent.startsWith('- ')) {
+    const afterIndent = line.slice(pos);
+    if (afterIndent === '-' || afterIndent.startsWith('- ')) {
       out += '<span class="t-dash">-</span>';
       pos += 1;
-      const sp = (riga.slice(pos).match(/^ */) || [''])[0];
+      const sp = (line.slice(pos).match(/^ */) || [''])[0];
       out += escapeHtml(sp);
       pos += sp.length;
     }
 
-    const resto = riga.slice(pos);
-    const chiave = resto.match(/^([^:\s#][^:]*):(?=\s|$)/);
-    if (chiave) {
-      out += `<span class="t-key">${escapeHtml(chiave[1])}</span>:`;
-      pos += chiave[1].length + 1;
-      const sp = (riga.slice(pos).match(/^ */) || [''])[0];
+    const rest = line.slice(pos);
+    const key = rest.match(/^([^:\s#][^:]*):(?=\s|$)/);
+    if (key) {
+      out += `<span class="t-key">${escapeHtml(key[1])}</span>:`;
+      pos += key[1].length + 1;
+      const sp = (line.slice(pos).match(/^ */) || [''])[0];
       out += escapeHtml(sp);
       pos += sp.length;
-      const valore = riga.slice(pos);
-      if (/^[|>][+-]?\d*$/.test(valore)) {
-        out += `<span class="t-bool">${escapeHtml(valore)}</span>`;
-        dentroBlocco = true;
-        indentPadre = indent;
+      const value = line.slice(pos);
+      if (/^[|>][+-]?\d*$/.test(value)) {
+        out += `<span class="t-bool">${escapeHtml(value)}</span>`;
+        insideBlock = true;
+        blockIndent = indent;
       } else {
-        out += highlightValue(valore);
+        out += highlightValue(value);
       }
     } else {
-      out += highlightValue(resto);
+      out += highlightValue(rest);
     }
-    html.push('<div class="riga">' + out + '</div>');
+    html.push('<div class="line">' + out + '</div>');
   }
 
-  // NIENTE separatori fra i div: dentro un contenitore con white-space
-  // pre-wrap un \n fra due blocchi genera una riga vuota in più, e le due
-  // copie finiscono con altezze diverse (il testo poi scorre rispetto alla
-  // selezione). I blocchi bastano da soli a separare le righe.
-  return { html: html.join(''), gutter: numeri.join('\n') };
+  // NO separators between the divs: inside a container with white-space
+  // pre-wrap a \n between two blocks adds an extra empty line, and the two
+  // copies end up with different heights (the text then scrolls out of step
+  // with the selection). The blocks separate the lines on their own.
+  return { html: html.join(''), gutter: numbers.join('\n') };
 }
 
 /**
- * Rientro di blocco, come in un editor serio.
- * Ritorna { testo, da, a } con il nuovo testo e la nuova selezione,
- * oppure null se non cambia niente.
+ * Block indentation, like in a real editor.
+ * Returns { text, start, end } with the new text and the new selection,
+ * or null when nothing changes.
  *
- * @param {string} valore testo completo
- * @param {number} selDa  inizio selezione
- * @param {number} selA   fine selezione
- * @param {1|-1} direzione +1 indenta, -1 toglie il rientro
+ * @param {string} value   the whole text
+ * @param {number} selFrom selection start
+ * @param {number} selTo   selection end
+ * @param {1|-1} direction +1 indent, -1 outdent
  */
-export function indentBlock(valore, selDa, selA, direzione) {
-  const v = String(valore ?? '');
-  const s = Math.max(0, Math.min(selDa, v.length));
-  const e = Math.max(s, Math.min(selA, v.length));
+export function indentBlock(value, selFrom, selTo, direction) {
+  const v = String(value ?? '');
+  const s = Math.max(0, Math.min(selFrom, v.length));
+  const e = Math.max(s, Math.min(selTo, v.length));
 
-  const inizio = v.lastIndexOf('\n', s - 1) + 1;
-  let fine = v.indexOf('\n', e);
-  if (fine === -1) fine = v.length;
-  // se la selezione finisce proprio a inizio riga, quella riga non si tocca
-  if (e > s && v[e - 1] === '\n') fine = e - 1;
+  const start = v.lastIndexOf('\n', s - 1) + 1;
+  let end = v.indexOf('\n', e);
+  if (end === -1) end = v.length;
+  // if the selection ends exactly at a line start, that line is left alone
+  if (e > s && v[e - 1] === '\n') end = e - 1;
 
-  const blocco = v.slice(inizio, fine);
-  const righe = blocco.split('\n');
+  const block = v.slice(start, end);
+  const lines = block.split('\n');
 
-  const nuove = direzione > 0
-    ? righe.map((r) => (r === '' ? r : `  ${r}`))
-    : righe.map((r) => r.replace(/^ {1,2}/, ''));
+  const updated = direction > 0
+    ? lines.map((l) => (l === '' ? l : `  ${l}`))
+    : lines.map((l) => l.replace(/^ {1,2}/, ''));
 
-  const nuovo = nuove.join('\n');
-  if (nuovo === blocco) return null;
+  const next = updated.join('\n');
+  if (next === block) return null;
 
-  let da;
-  let a;
+  let from;
+  let to;
   if (s === e) {
-    // cursore semplice: resta dov'era, spostato di quanto è cambiato il rientro
-    const delta = direzione > 0 ? 2 : nuove[0].length - righe[0].length;
-    const pos = Math.max(inizio, s + delta);
-    da = pos;
-    a = pos;
+    // collapsed caret: it stays where it was, shifted by how much the
+    // indentation of that line changed
+    const delta = direction > 0 ? 2 : updated[0].length - lines[0].length;
+    const pos = Math.max(start, s + delta);
+    from = pos;
+    to = pos;
   } else {
-    da = inizio;
-    a = inizio + nuovo.length;
+    from = start;
+    to = start + next.length;
   }
 
-  return { testo: v.slice(0, inizio) + nuovo + v.slice(fine), da, a };
+  return { text: v.slice(0, start) + next + v.slice(end), start: from, end: to };
 }
 
 /**
- * Rientro automatico sull'Invio: dentro una mappa si scende di due spazi,
- * dopo una voce di lista si resta allo stesso livello per aggiungere un fratello.
+ * Auto-indent on Enter: inside a mapping it goes down two spaces, after a list
+ * item it stays at the same level so you can add a sibling.
  */
-export function autoIndentRiga(riga) {
-  const t = String(riga ?? '').trim();
-  const rientro = (String(riga ?? '').match(/^ */) || [''])[0];
-  if (t.endsWith(':')) return `${rientro}  `;
-  return rientro;
+export function autoIndentLine(line) {
+  const t = String(line ?? '').trim();
+  const indent = (String(line ?? '').match(/^ */) || [''])[0];
+  if (t.endsWith(':')) return `${indent}  `;
+  return indent;
 }

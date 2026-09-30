@@ -62,7 +62,7 @@ async function postJson(url, body, headers = {}, method = 'POST') {
 /** Chiamata a un servizio di Home Assistant. */
 async function haCall(pathSuffix, body) {
   if (!env.haUrl || !env.haToken) {
-    throw new Error('HA_URL o HA_TOKEN mancanti in .env (vedi la sezione Home Assistant del README)');
+    throw new Error('HA_URL or HA_TOKEN missing in .env (see the Home Assistant section of the docs)');
   }
   return postJson(`${env.haUrl}/api/services/${pathSuffix}`, body, {
     Authorization: `Bearer ${env.haToken}`,
@@ -93,7 +93,7 @@ function payload(ctx) {
 
 const HANDLERS = {
   log: async (a, ctx) => {
-    log[String(a.level || 'info')]({ rule: ctx.rule.id }, render(a.message, ctx) || 'azione log');
+    log[String(a.level || 'info')]({ rule: ctx.rule.id }, render(a.message, ctx) || 'log action');
   },
 
   'notify.console': async (a, ctx) => {
@@ -103,7 +103,7 @@ const HANDLERS = {
   'notify.telegram': async (a, ctx) => {
     const token = a.token || env.telegramToken;
     const chatId = a.chatId || env.telegramChatId;
-    if (!token || !chatId) throw new Error('telegram non configurato (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID)');
+    if (!token || !chatId) throw new Error('telegram not configured (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID)');
     const text = render(a.message, ctx) || `[${ctx.rule.name}] ${ctx.text}`;
     await postJson(`https://api.telegram.org/bot${token}/sendMessage`, {
       chat_id: chatId,
@@ -114,14 +114,14 @@ const HANDLERS = {
   },
 
   webhook: async (a, ctx) => {
-    if (!a.url) throw new Error('webhook senza "url"');
+    if (!a.url) throw new Error('webhook without "url"');
     const body = a.body ? renderDeep(a.body, ctx) : payload(ctx);
     await postJson(render(a.url, ctx), body, renderDeep(a.headers || {}, ctx), a.method || 'POST');
   },
 
   'ha.webhook': async (a, ctx) => {
     const id = a.webhookId || env.haWebhookId;
-    if (!env.haUrl || !id) throw new Error('HA_URL/HA_WEBHOOK_ID non configurati');
+    if (!env.haUrl || !id) throw new Error('HA_URL/HA_WEBHOOK_ID not configured');
     await postJson(`${env.haUrl}/api/webhook/${id}`, a.body ? renderDeep(a.body, ctx) : payload(ctx));
   },
 
@@ -130,7 +130,7 @@ const HANDLERS = {
   // long-lived in HA_TOKEN. Vedi la sezione "Home Assistant" del README.
 
   'ha.service': async (a, ctx) => {
-    if (!a.domain || !a.service) throw new Error('ha.service richiede "domain" e "service"');
+    if (!a.domain || !a.service) throw new Error('ha.service requires "domain" and "service"');
     const data = { ...renderDeep(a.data || {}, ctx) };
     if (a.entityId) data.entity_id = renderDeep(a.entityId, ctx);
     const qs = a.returnResponse ? '?return_response=true' : '';
@@ -140,8 +140,8 @@ const HANDLERS = {
   /** Azione generica su una entità: es. "light", "switch", "media_player". */
   'ha.action': async (a, ctx) => {
     const target = renderDeep(a.entityId || a.entity, ctx);
-    if (!target) throw new Error('ha.action richiede "entityId" (es. light.salotto)');
-    if (!a.action) throw new Error('ha.action richiede "action" (es. turn_on, toggle)');
+    if (!target) throw new Error('ha.action requires "entityId" (e.g. light.living_room)');
+    if (!a.action) throw new Error('ha.action requires "action" (e.g. turn_on, toggle)');
     const [domain] = String(target).split('.');
     const data = { ...renderDeep(a.data || {}, ctx), entity_id: target };
     const qs = a.returnResponse ? '?return_response=true' : '';
@@ -151,7 +151,7 @@ const HANDLERS = {
   /** Premere un button (o più di uno). */
   'ha.button': async (a, ctx) => {
     const target = renderDeep(a.button || a.entityId, ctx);
-    if (!target) throw new Error('ha.button richiede "button" (es. button.campanello)');
+    if (!target) throw new Error('ha.button requires "button" (e.g. button.doorbell)');
     const ids = [].concat(target).map((t) => (String(t).includes('.') ? String(t) : `button.${t}`));
     await haCall('button/press', { entity_id: ids.length === 1 ? ids[0] : ids });
   },
@@ -164,7 +164,7 @@ const HANDLERS = {
    */
   'ha.script': async (a, ctx) => {
     const target = renderDeep(a.script || a.entityId, ctx);
-    if (!target) throw new Error('ha.script richiede "script" (es. script.notifica_ordine)');
+    if (!target) throw new Error('ha.script requires "script" (e.g. script.notify_order)');
     const id = String(target).replace(/^script\./, '');
     const variables = renderDeep(a.variables || a.data || {}, ctx);
     if (a.wait) {
@@ -177,7 +177,7 @@ const HANDLERS = {
   /** Attivare un'automazione. */
   'ha.automation': async (a, ctx) => {
     const target = renderDeep(a.automation || a.entityId, ctx);
-    if (!target) throw new Error('ha.automation richiede "automation" (es. automation.cancello)');
+    if (!target) throw new Error('ha.automation requires "automation" (e.g. automation.gate)');
     const id = String(target).includes('.') ? String(target) : `automation.${target}`;
     await haCall('automation/trigger', { entity_id: id });
   },
@@ -185,7 +185,7 @@ const HANDLERS = {
   /** Scorciatoia per notify.<servizio> — il caso più comune. */
   'ha.notify': async (a, ctx) => {
     const service = renderDeep(a.service || a.target, ctx);
-    if (!service) throw new Error('ha.notify richiede "service" (es. mobile_app_il_mio_telefono)');
+    if (!service) throw new Error('ha.notify requires "service" (e.g. mobile_app_my_phone)');
     const body = {
       message: render(a.message ?? '{{content}}', ctx),
       ...(a.title ? { title: render(a.title, ctx) } : {}),
@@ -195,24 +195,24 @@ const HANDLERS = {
   },
 
   appendJsonl: async (a, ctx) => {
-    if (!a.file) throw new Error('appendJsonl senza "file"');
+    if (!a.file) throw new Error('appendJsonl without "file"');
     const record = a.fields ? renderDeep(a.fields, ctx) : payload(ctx);
     appendJsonl(a.file, record);
   },
 
   reply: async (a, ctx) => {
     if (!ctx.settings.allowReply) {
-      throw new Error('azione "reply" disabilitata: il progetto è in modalità solo lettura (settings.readOnly)');
+      throw new Error('"reply" action disabled: the project is in read-only mode (settings.readOnly)');
     }
     const text = render(a.text, ctx);
-    if (!text) throw new Error('reply senza "text"');
-    if (!ctx.send) throw new Error('reply: nessuna connessione WhatsApp attiva');
+    if (!text) throw new Error('reply without "text"');
+    if (!ctx.send) throw new Error('reply: no active WhatsApp connection');
     await ctx.send(ctx.msg.chatJid, { text }, { quoted: ctx.msg.raw });
   },
 
   shell: async (a, ctx) => {
-    if (!ctx.settings.allowShell) throw new Error('azione "shell" disabilitata (settings.allowShell=false)');
-    if (!a.command) throw new Error('shell senza "command"');
+    if (!ctx.settings.allowShell) throw new Error('"shell" action disabled (settings.allowShell=false)');
+    if (!a.command) throw new Error('shell without "command"');
     const cmd = render(a.command, ctx);
     const { stdout } = await execAsync(cmd, {
       timeout: a.timeoutMs || 30000,
@@ -244,23 +244,23 @@ export async function runActions(actions, ctx) {
     const type = action.type;
     const handler = HANDLERS[type];
     if (!handler) {
-      results.push({ type, ok: false, error: `tipo di azione sconosciuto: ${type}` });
-      log.error({ type, rule: ctx.rule.id }, 'azione sconosciuta');
+      results.push({ type, ok: false, error: `unknown action type: ${type}` });
+      log.error({ type, rule: ctx.rule.id }, 'unknown action');
       continue;
     }
     try {
       if (ctx.dryRun) {
-        log.info(`[dry-run] azione "${type}" su regola "${ctx.rule.id}"${action.file ? ` -> ${action.file}` : ''}${action.url ? ` -> ${action.url}` : ''}`);
+        log.info(`[dry-run] action "${type}" on rule "${ctx.rule.id}"${action.file ? ` -> ${action.file}` : ''}${action.url ? ` -> ${action.url}` : ''}`);
         results.push({ type, ok: true, dryRun: true });
         continue;
       }
       await handler(action, ctx);
       results.push({ type, ok: true });
       // Utile con LOG_LEVEL=debug per vedere quali azioni sono davvero partite.
-      log.debug({ rule: ctx.rule.id, type }, 'azione eseguita');
+      log.debug({ rule: ctx.rule.id, type }, 'action executed');
     } catch (err) {
       results.push({ type, ok: false, error: err.message });
-      log.error({ type, rule: ctx.rule.id, err: err.message }, 'azione fallita');
+      log.error({ type, rule: ctx.rule.id, err: err.message }, 'action failed');
     }
   }
   return { ok: results.every((r) => r.ok), results };

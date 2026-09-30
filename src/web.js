@@ -38,7 +38,7 @@ function resolveToken(configured) {
     fs.mkdirSync(paths.data, { recursive: true });
     fs.writeFileSync(TOKEN_FILE, token, { mode: 0o600 });
   } catch (err) {
-    log.warn({ err: err.message }, 'non riesco a salvare il token del pannello');
+    log.warn({ err: err.message }, 'cannot save the panel token');
   }
   return { token, generated: true };
 }
@@ -60,7 +60,7 @@ function readBody(req, limit) {
     req.on('data', (c) => {
       size += c.length;
       if (size > limit) {
-        reject(Object.assign(new Error(`corpo troppo grande (max ${Math.round(limit / 1024 / 1024)} MB)`), { status: 413 }));
+        reject(Object.assign(new Error(`body too large (max ${Math.round(limit / 1024 / 1024)} MB)`), { status: 413 }));
         req.destroy();
         return;
       }
@@ -147,7 +147,7 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
       try {
         send(res, 200, fs.readFileSync(UI_FILE), 'text/html; charset=utf-8');
       } catch (err) {
-        send(res, 500, { error: `ui.html non leggibile: ${err.message}` });
+        send(res, 500, { error: `cannot read ui.html: ${err.message}` });
       }
       return;
     }
@@ -157,7 +157,7 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
       try {
         send(res, 200, fs.readFileSync(path.join(HERE, 'web', 'editor.js')), 'text/javascript; charset=utf-8');
       } catch (err) {
-        send(res, 500, { error: `editor.js non leggibile: ${err.message}` });
+        send(res, 500, { error: `cannot read editor.js: ${err.message}` });
       }
       return;
     }
@@ -173,13 +173,13 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
     }
 
     if (!url.pathname.startsWith('/api/')) {
-      send(res, 404, { error: 'non trovato' });
+      send(res, 404, { error: 'not found' });
       return;
     }
 
     const provided = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
     if (provided !== token) {
-      send(res, 401, { error: 'token mancante o errato' });
+      send(res, 401, { error: 'missing or wrong token' });
       return;
     }
 
@@ -235,7 +235,7 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
 
         writeRulesFile(parsed.yaml);
         const config = await reload();
-        log.info({ rules: config.rules.length }, 'regole salvate dal pannello');
+        log.info({ rules: config.rules.length }, 'rules saved from the panel');
         send(res, 200, { ok: true, rules: config.rules.length });
         return;
       }
@@ -259,7 +259,7 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
       if (route === 'POST /api/test-audio') {
         const buf = await readBody(req, MAX_AUDIO_BYTES);
         if (!buf.length) {
-          send(res, 400, { error: 'nessun audio ricevuto' });
+          send(res, 400, { error: 'no audio received' });
           return;
         }
         const file = saveBuffer(buf, {
@@ -281,8 +281,8 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
           type: 'audio',
           ptt: true,
           mediaFile: file,
-          chatName: url.searchParams.get('chatName') || 'Chat di prova',
-          senderName: url.searchParams.get('senderName') || 'Mittente di prova',
+          chatName: url.searchParams.get('chatName') || 'Test chat',
+          senderName: url.searchParams.get('senderName') || 'Test sender',
           chatJid: url.searchParams.get('chatJid') || undefined,
           senderJid: url.searchParams.get('senderJid') || undefined,
           isGroup: url.searchParams.get('isGroup') === 'true',
@@ -318,9 +318,9 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
         return;
       }
 
-      send(res, 404, { error: 'endpoint sconosciuto' });
+      send(res, 404, { error: 'unknown endpoint' });
     } catch (err) {
-      log.error({ route, err: err.message }, 'errore nel pannello');
+      log.error({ route, err: err.message }, 'panel error');
       send(res, err.status || 500, { error: err.message });
     }
   });
@@ -329,11 +329,11 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
     server.once('error', reject);
     server.listen(port, host, () => {
       const dove = host === '127.0.0.1' || host === 'localhost' ? 'solo questa macchina' : `LAN (${host})`;
-      log.info(`pannello web su http://${host}:${port} — ${dove}`);
-      if (generated) log.info(`token generato e salvato in ${path.relative(paths.root, TOKEN_FILE)}: ${token}`);
-      else log.info('token del pannello: quello in WEB_TOKEN');
+      log.info(`web panel on http://${host}:${port} — ${dove}`);
+      if (generated) log.info(`token generated and saved to ${path.relative(paths.root, TOKEN_FILE)}: ${token}`);
+      else log.info('panel token: the one in WEB_TOKEN');
       if (host === '0.0.0.0' && !configuredToken) {
-        log.warn('il pannello è esposto in LAN: chi conosce il token può riscrivere le regole. Tienilo privato.');
+        log.warn('the panel is exposed on the LAN: whoever knows the token can rewrite your rules. Keep it private.');
       }
       resolve({ server, token, close: () => server.close() });
     });

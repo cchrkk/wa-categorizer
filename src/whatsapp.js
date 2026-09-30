@@ -151,17 +151,17 @@ const MEDIA_TYPES = new Set(['audio', 'image', 'video', 'document', 'sticker']);
  */
 export function enforceReadOnly(sock, { allowReply }) {
   const blocked = (what) => async () => {
-    throw new Error(`modalità solo lettura: ${what} bloccato`);
+    throw new Error(`read-only mode: ${what} bloccato`);
   };
   // Nessuna ricevuta di lettura, mai.
   sock.readMessages = blocked('readMessages()');
   // Nessuna presenza inviata (online / typing / last seen lato tuo).
   sock.sendPresenceUpdate = async (...args) => {
-    log.debug({ presence: args[0] }, 'presenza bloccata (solo lettura)');
+    log.debug({ presence: args[0] }, 'presence blocked (read-only)');
     return undefined;
   };
   // Nessun invio di messaggi, a meno che non sia esplicitamente consentito.
-  if (!allowReply) sock.sendMessage = blocked('invio messaggi');
+  if (!allowReply) sock.sendMessage = blocked('sending messages');
   return sock;
 }
 
@@ -228,7 +228,7 @@ export function startWhatsApp({ onMessage, onQr, onState = () => {}, allowReply 
 
         await onMessage(msg, { sock, downloadMedia });
       } catch (err) {
-        log.error({ err: err.message, id: raw.key?.id }, 'errore nel messaggio');
+        log.error({ err: err.message, id: raw.key?.id }, 'error while handling the message');
       }
     }
   }
@@ -313,10 +313,10 @@ export function startWhatsApp({ onMessage, onQr, onState = () => {}, allowReply 
           // vedono già dal "connessione persa" che le precede.
           if (!opened) {
             opened = true;
-            log.info('connesso a WhatsApp');
+            log.info('connected to WhatsApp');
             resolveReady();
           } else {
-            log.debug('connessione ristabilita');
+            log.debug('connection restored');
           }
           setSelf(s.user);
           onState('open');
@@ -360,22 +360,22 @@ export function startWhatsApp({ onMessage, onQr, onState = () => {}, allowReply 
         if (loggedOut) {
           stopped = true;
           onState('fatal');
-          log.error(`sessione chiusa da WhatsApp (loggedOut). Elimina la cartella "${paths.auth}" e riavvia per rifare il QR.`);
+          log.error(`session closed by WhatsApp (loggedOut). Delete the folder "${paths.auth}" and restart to pair again.`);
           return;
         }
 
         if (statusCode === connectionReplaced) {
           replacedStrikes += 1;
           log.error(
-            `connessione sostituita (440, tentativo ${replacedStrikes}/4): un'altra sessione sta usando ` +
-            `le stesse credenziali in "${paths.auth}".`,
+            `connection replaced (440, attempt ${replacedStrikes}/4): another session is using ` +
+            `the same credentials in "${paths.auth}".`,
           );
           if (replacedStrikes > 3) {
             stopped = true;
             onState('fatal');
             log.error(
-              'errore 440 ripetuto: chiudi l\'altra istanza di questo programma (o il WhatsApp Web aperto ' +
-              'con lo stesso numero) e riavvia. Nessun altro processo deve usare la stessa cartella auth/.',
+              'repeated 440: close the other instance of this program (or the WhatsApp Web session opened ' +
+              'with the same number) and restart. No other process may use the same auth/ folder.',
             );
             return;
           }
@@ -388,14 +388,14 @@ export function startWhatsApp({ onMessage, onQr, onState = () => {}, allowReply 
         // "tentativo 0", che non voleva dire niente).
         attempt = opened ? 0 : attempt + 1;
         const delay = backoffMs(statusCode, attempt);
-        const riga = `connessione persa (code ${statusCode}), riprovo tra ${(delay / 1000).toFixed(1)}s`;
-        if (CADUTE_BANALI.has(statusCode)) log.info(riga);
-        else log.warn(riga);
+        const line = `connection lost (code ${statusCode}), retrying in ${(delay / 1000).toFixed(1)}s`;
+        if (CADUTE_BANALI.has(statusCode)) log.info(line);
+        else log.warn(line);
         await sleep(delay);
       } catch (err) {
         attempt += 1;
         const delay = backoffMs(0, attempt);
-        log.warn(`riconnessione tra ${(delay / 1000).toFixed(1)}s (tentativo ${attempt}): ${err.message}`);
+        log.warn(`reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${attempt}): ${err.message}`);
         await sleep(delay);
       }
     }

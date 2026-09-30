@@ -27,7 +27,7 @@ export async function handleMessage({ config, msg, send = null, downloadMedia = 
   const { settings, rules } = config;
 
   if (msg.fromMe && !settings.processOwnMessages) {
-    log.debug({ id: msg.id }, 'messaggio mio, ignorato');
+    log.debug({ id: msg.id }, 'my own message, ignored');
     return { skipped: 'fromMe' };
   }
   if (settings.ignoreStatus && msg.chatJid === 'status@broadcast') {
@@ -70,15 +70,15 @@ export async function handleMessage({ config, msg, send = null, downloadMedia = 
     transcriptDone = true;
     try {
       if (msg.type !== 'audio') return null;
-      if (!settings.transcribeAudio) { log.debug('trascrizione disattivata dalle settings'); return null; }
+      if (!settings.transcribeAudio) { log.debug('transcription disabled in settings'); return null; }
       mediaFile = msg.mediaFile || (downloadMedia ? await downloadMedia() : null);
-      if (!mediaFile) { log.warn({ id: msg.id }, 'nessun file audio disponibile'); return null; }
+      if (!mediaFile) { log.warn({ id: msg.id }, 'no audio file available'); return null; }
       const res = await transcribe(mediaFile);
       transcript = res?.text || null;
       record.transcript = transcript;
       bump('transcribed');
     } catch (err) {
-      log.error({ err: err.message, id: msg.id }, 'trascrizione fallita');
+      log.error({ err: err.message, id: msg.id }, 'transcription failed');
       record.transcribeError = err.message;
     }
     return transcript;
@@ -110,14 +110,14 @@ export async function handleMessage({ config, msg, send = null, downloadMedia = 
       results.classified = classification;
       record.classification = classification;
       if (!classifyAllows(rule, classification)) {
-        log.info({ rule: rule.id, label: classification?.label }, 'regola scartata dalla classificazione');
+        log.info({ rule: rule.id, label: classification?.label }, 'rule rejected by classification');
         continue;
       }
     }
 
     log.info(
       { rule: rule.id, chat: msg.chatName, sender: msg.senderName, type: msg.type },
-      `regola attivata: ${rule.name}`,
+      `rule fired: ${rule.name}`,
     );
     bump('ruleHits');
 
@@ -149,7 +149,7 @@ export async function handleMessage({ config, msg, send = null, downloadMedia = 
   // Se la trascrizione è fallita lo teniamo, così si può riprovare.
   if (settings.mediaRetentionDays === 0 && mediaFile && !dryRun) {
     if (transcript) record.mediaDeleted = deleteMedia(mediaFile);
-    else log.warn({ file: mediaFile }, 'trascrizione assente: tengo il file per riprovare');
+    else log.warn({ file: mediaFile }, 'no transcript: keeping the file so you can retry');
   }
 
   if (settings.logMessages && !dryRun) appendMessage(record);

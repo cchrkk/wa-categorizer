@@ -2,7 +2,7 @@
 // highlighting, indentation and auto-indent are pure functions.
 //
 //   node tools/editor-test.mjs
-import { highlight, indentBlock, autoIndentRiga } from '../src/web/editor.js';
+import { highlight, indentBlock, autoIndentLine } from '../src/web/editor.js';
 
 let failed = 0;
 function check(name, fn) {
@@ -88,18 +88,18 @@ console.log('\nTab indentation\n');
 
 check('Tab adds two spaces', () => {
   const r = indentBlock('name: value', 0, 0, 1);
-  eq(r.testo, '  name: value');
+  eq(r.text, '  name: value');
 });
 
 check('the caret moves with the text', () => {
   const r = indentBlock('name: value', 5, 5, 1);
-  eq(r.testo, '  name: value');
-  eq(r.da, 7, 'the caret did not stay where it was');
+  eq(r.text, '  name: value');
+  eq(r.start, 7, 'the caret did not stay where it was');
 });
 
 check('Shift+Tab removes the indentation', () => {
   const r = indentBlock('    name: value', 6, 6, -1);
-  eq(r.testo, '  name: value');
+  eq(r.text, '  name: value');
 });
 
 check('Shift+Tab on an unindented line changes nothing', () => {
@@ -109,40 +109,40 @@ check('Shift+Tab on an unindented line changes nothing', () => {
 check('with several lines selected it indents them all', () => {
   const text = 'a: 1\nb: 2\nc: 3';
   const r = indentBlock(text, 0, text.length, 1);
-  eq(r.testo, '  a: 1\n  b: 2\n  c: 3');
-  eq(r.da, 0);
-  eq(r.a, r.testo.length, 'the selection does not cover the block');
+  eq(r.text, '  a: 1\n  b: 2\n  c: 3');
+  eq(r.start, 0);
+  eq(r.end, r.text.length, 'the selection does not cover the block');
 });
 
 check('if the selection ends at a line start, that line is untouched', () => {
   const text = 'a: 1\nb: 2\nc: 3';
   const r = indentBlock(text, 0, 5, 1); // selection = "a: 1\n"
-  eq(r.testo, '  a: 1\nb: 2\nc: 3');
+  eq(r.text, '  a: 1\nb: 2\nc: 3');
 });
 
 check('empty lines are not indented', () => {
   const r = indentBlock('a: 1\n\nb: 2', 0, 10, 1);
-  eq(r.testo, '  a: 1\n\n  b: 2');
+  eq(r.text, '  a: 1\n\n  b: 2');
 });
 
 check('with several lines selected it unindents them all', () => {
   const text = '  a: 1\n  b: 2';
   const r = indentBlock(text, 0, text.length, -1);
-  eq(r.testo, 'a: 1\nb: 2');
+  eq(r.text, 'a: 1\nb: 2');
 });
 
 console.log('\nauto-indent on Enter\n');
 
 check('after a key it goes down two spaces', () => {
-  eq(autoIndentRiga('  match:'), '    ');
+  eq(autoIndentLine('  match:'), '    ');
 });
 
 check('after a list item it stays at the same level', () => {
-  eq(autoIndentRiga('  - id: x'), '  ');
+  eq(autoIndentLine('  - id: x'), '  ');
 });
 
 check('inside a | block it keeps the same indentation', () => {
-  eq(autoIndentRiga('    normal text'), '    ');
+  eq(autoIndentLine('    normal text'), '    ');
 });
 
 console.log(failed ? `\n✗ ${failed} tests failed\n` : '\n✓ editor ok\n');

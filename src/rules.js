@@ -46,7 +46,7 @@ function matchesText(value, spec) {
         try {
           return new RegExp(needle, flags).test(haystack);
         } catch (err) {
-          log.warn({ pattern: needle, flags, err: err.message }, 'regex non valida, ignorata');
+          log.warn({ pattern: needle, flags, err: err.message }, 'invalid regex, ignored');
           return false;
         }
       }
@@ -172,7 +172,7 @@ export function ruleMatches(rule, msg, resolvedText) {
 
   const failed = checks.filter(([, ok]) => !ok).map(([n]) => n);
   const ok = failed.length === 0;
-  if (!ok) log.debug({ rule: rule.id, failed }, 'regola non soddisfatta');
+  if (!ok) log.debug({ rule: rule.id, failed }, 'rule not satisfied');
   return { ok, failed, checks: checks.length };
 }
 

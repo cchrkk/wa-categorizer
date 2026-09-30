@@ -1,0 +1,45 @@
+version: 2
+
+updates:
+  # --- npm ---------------------------------------------------------
+  # Baileys is the one to watch: it speaks the WhatsApp Web protocol, so
+  # when WhatsApp changes something it is usually Baileys that has to catch
+  # up. Minors and patches land in a single PR (CI validates it); a major
+  # version, which can carry breaking changes, gets its own PR to review.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: deps
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- Docker ------------------------------------------------------
+  # Base image (node:22-alpine) and anything referenced in the Dockerfile.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    commit-message:
+      prefix: docker
+
+  # --- GitHub Actions ----------------------------------------------
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    commit-message:
+      prefix: ci

@@ -34,7 +34,7 @@ export function saveBuffer(buffer, { subdir, basename, extension }) {
   const safe = String(basename).replace(/[^\w.\-]+/g, '_').slice(0, 80);
   const file = path.join(dir, `${safe}.${extension}`);
   fs.writeFileSync(file, buffer);
-  log.debug({ file, bytes: buffer.length }, 'media salvato');
+  log.debug({ file, bytes: buffer.length }, 'media saved');
   return file;
 }
 
@@ -94,7 +94,7 @@ export function sweepMedia(retentionDays) {
         if (esempi.length < 5) esempi.push(entry.name === 'tmp' ? `tmp/${name}` : `${entry.name}/${name}`);
       } catch (err) {
         failed += 1;
-        log.warn({ file, err: err.message }, 'non riesco a cancellare');
+        log.warn({ file, err: err.message }, 'cannot delete');
       }
     }
 
@@ -105,8 +105,8 @@ export function sweepMedia(retentionDays) {
 
   if (removed) {
     log.info(
-      { rimossi: removed, liberati: `${(freed / 1048576).toFixed(2)} MB`, retentionDays, esempi },
-      'pulizia media',
+      { removed, freed: `${(freed / 1048576).toFixed(2)} MB`, retentionDays, examples: esempi },
+      'media cleanup',
     );
   }
   return { skipped: false, removed, freed, failed };
@@ -117,10 +117,10 @@ export function deleteMedia(file) {
   if (!file) return false;
   try {
     fs.unlinkSync(file);
-    log.debug({ file }, 'media cancellato subito dopo l\'elaborazione');
+    log.debug({ file }, 'media deleted right after processing');
     return true;
   } catch (err) {
-    log.warn({ file, err: err.message }, 'non riesco a cancellare il media');
+    log.warn({ file, err: err.message }, 'cannot delete the media');
     return false;
   }
 }

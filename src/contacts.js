@@ -38,9 +38,9 @@ function load() {
     Object.assign(state.jidToLid, raw.jidToLid || {});
     Object.assign(state.names, raw.names || {});
     if (raw.me) state.me = raw.me;
-    log.debug({ contatti: Object.keys(state.names).length }, 'rubrica caricata');
+    log.debug({ contacts: Object.keys(state.names).length }, 'address book loaded');
   } catch (err) {
-    if (err.code !== 'ENOENT') log.warn({ err: err.message }, 'rubrica non leggibile, riparto da zero');
+    if (err.code !== 'ENOENT') log.warn({ err: err.message }, 'address book unreadable, starting from scratch');
   }
 }
 
@@ -61,7 +61,7 @@ export function flushContacts() {
     fs.writeFileSync(FILE, JSON.stringify(state, null, 1));
     dirty = false;
   } catch (err) {
-    log.warn({ err: err.message }, 'impossibile salvare la rubrica');
+    log.warn({ err: err.message }, 'cannot save the address book');
   }
 }
 
@@ -115,7 +115,7 @@ export function setSelf(user) {
   // riscriverla ogni volta riempie i log di righe identiche.
   const cambiata = prev.id !== nuovo.id || prev.lid !== nuovo.lid || prev.jid !== nuovo.jid || prev.name !== nuovo.name;
   if (!cambiata) {
-    log.debug({ me: nuovo }, 'identità account invariata');
+    log.debug({ me: nuovo }, 'account identity unchanged');
     return;
   }
 
@@ -124,7 +124,7 @@ export function setSelf(user) {
     state.jidToLid[nuovo.jid] = nuovo.lid;
   }
   if (nuovo.name) state.names[id] = nuovo.name;
-  log.info({ me: nuovo }, 'identità account salvata');
+  log.info({ me: nuovo }, 'account identity saved');
   scheduleSave();
 }
 

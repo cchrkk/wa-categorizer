@@ -22,29 +22,29 @@ const flagValue = (f) => {
 };
 
 const HELP = `
-wa-categorizer — categorizza i messaggi WhatsApp e scatena azioni
+wa-categorizer — categorises WhatsApp messages and runs actions
 
-Uso:
-  npm start                     connette WhatsApp (QR al primo avvio) e resta in ascolto
-  npm start -- --login          come sopra, esplicito
-  npm start -- --check          valida config/rules.yaml e l'ambiente, poi esce
-  npm run contacts              mostra jid, LID e nomi dei contatti conosciuti
-  npm start -- --simulate FILE  fa passare un messaggio finto dal motore di regole (dry-run)
-  npm start -- --simulate FILE --live   come sopra ma esegue davvero le azioni
+Usage:
+  npm start                     connects to WhatsApp (QR on first run) and listens
+  npm start -- --login          same as above, explicit
+  npm start -- --check          validates config/rules.yaml and the environment, then exits
+  npm run contacts              shows the jids, LIDs and names it knows
+  npm start -- --simulate FILE  runs a fake message through the rule engine (dry run)
+  npm start -- --simulate FILE --live   same, but really runs the actions
 
-Opzioni:
-  --config FILE   usa un file di regole diverso da config/rules.json
-  --dry           connette ma non esegue nessuna azione
-  --help          questo testo
+Options:
+  --config FILE   use a rules file other than config/rules.yaml
+  --dry           connects but runs no action
+  --help          this text
 `.trim();
 
 function banner(config) {
   logger.info('─'.repeat(72));
-  logger.info('🔒 modalità SOLO LETTURA — nessuna spunta blu, nessuna presenza online');
-  logger.info(`wa-categorizer · trascrizione: ${transcribeBackendName()}`);
+  logger.info('🔒 READ-ONLY MODE — no blue ticks, no online presence');
+  logger.info(`wa-categorizer · transcription: ${transcribeBackendName()}`);
   const files = config.ruleFiles || [path.relative(paths.root, paths.rulesFile)];
   logger.info(`config: ${files.join(' + ')}`);
-  logger.info(`regole attive: ${config.rules.length}`);
+  logger.info(`rules active: ${config.rules.length}`);
   for (const r of config.rules) {
     const da = r.from ? ` [${r.from}]` : '';
     logger.info(`  • [${String(r.priority).padStart(3)}] ${r.id.padEnd(22)} ${describeRule(r)}${da}`);
@@ -75,42 +75,42 @@ async function telegramApi(method, params = {}) {  const res = await fetch(`http
 
 async function runCheck(config) {
   let ok = true;
-  logger.info('▶ controllo configurazione…');
-  logger.info('  ✓ solo lettura: readMessages() e presenza disattivati a livello di client');
+  logger.info('▶ checking configuration…');
+  logger.info('  ✓ read-only: readMessages() and presence disabled at the client level');
   if (config.settings.allowReply) {
-    logger.warn('  ! allowReply attivo: le regole possono scrivere nelle chat');
+    logger.warn('  ! allowReply is on: rules can write into chats');
   }
   const wantsReply = config.rules.some((r) => r.actions.some((a) => a.type === 'reply'));
   if (wantsReply && !config.settings.allowReply) {
-    logger.warn('  ! azione "reply" usata ma bloccata dalla modalità solo lettura');
+    logger.warn('  ! "reply" action used but blocked by read-only mode');
   }
 
   try {
     const backend = assertTranscribeReady();
-    logger.info(`  ✓ trascrizione: ${backend}${backend === 'command' ? ` (${env.transcribeCommand})` : ''}`);
+    logger.info(`  ✓ transcription: ${backend}${backend === 'command' ? ` (${env.transcribeCommand})` : ''}`);
   } catch (err) {
     ok = false;
-    logger.error(`  ✗ trascrizione: ${err.message}`);
+    logger.error(`  ✗ transcription: ${err.message}`);
   }
 
   const usedTypes = new Set(config.rules.flatMap((r) => r.actions.map((a) => a.type)));
   for (const t of usedTypes) {
     if (!ACTION_TYPES.includes(t)) {
       ok = false;
-      logger.error(`  ✗ azione sconosciuta: ${t} (disponibili: ${ACTION_TYPES.join(', ')})`);
+      logger.error(`  ✗ unknown action: ${t} (available: ${ACTION_TYPES.join(', ')})`);
     }
   }
-  logger.info(`  ✓ ${usedTypes.size} tipi di azione usati, tutti riconosciuti`);
+  logger.info(`  ✓ ${usedTypes.size} action types used, all recognised`);
 
   const ret = config.settings.mediaRetentionDays;
-  const retLabel = ret < 0 ? 'mai' : ret === 0 ? 'cancellati a fine elaborazione' : `${ret} giorni`;
-  logger.info(`  ✓ media in data/out: conservati ${retLabel}${ret >= 0 ? ' (tmp/ sempre svuotata)' : ''}`);
+  const retLabel = ret < 0 ? 'never' : ret === 0 ? 'deleted right after processing' : `${ret} days`;
+  logger.info(`  ✓ media in data/out: kept ${retLabel}${ret >= 0 ? ' (tmp/ always emptied)' : ''}`);
 
   if (env.webEnabled) {
     const dove = ['127.0.0.1', 'localhost'].includes(env.webBind) ? 'solo questa macchina' : `LAN (${env.webBind})`;
-    logger.info(`  ✓ pannello web: porta ${env.webPort}, ${dove}, ${env.webToken ? 'token da .env' : 'token generato in data/web-token.txt'}`);
+    logger.info(`  ✓ web panel: port ${env.webPort}, ${dove}, ${env.webToken ? 'token from .env' : 'token generated in data/web-token.txt'}`);
   } else {
-    logger.info('  · pannello web disattivato (WEB_ENABLED=true per attivarlo)');
+    logger.info('  · web panel disabled (WEB_ENABLED=true to turn it on)');
   }
 
   // Segnaposto scritti male: {{transcriptt}} non esplode, ma esce vuoto o letterale.
@@ -134,16 +134,16 @@ async function runCheck(config) {
   }
   if (unknowns.size) {
     ok = false;
-    logger.error(`  ✗ segnaposto sconosciuti: ${[...unknowns].join(', ')}`);
-    logger.error(`     disponibili: ${PLACEHOLDERS.join(', ')}, {{1}}, {{nomeGruppo}}`);
+    logger.error(`  ✗ unknown placeholders: ${[...unknowns].join(', ')}`);
+    logger.error(`     available: ${PLACEHOLDERS.join(', ')}, {{1}}, {{namedGroup}}`);
   } else {
-    logger.info(`  ✓ tutti i segnaposto {{...}} sono validi${gruppiConNome.size ? ` (gruppi: ${[...gruppiConNome].join(', ')})` : ''}`);
+    logger.info(`  ✓ all {{...}} placeholders are valid${gruppiConNome.size ? ` (groups: ${[...gruppiConNome].join(', ')})` : ''}`);
   }
 
   if (usedTypes.has('notify.telegram')) {
     if (!env.telegramToken || !env.telegramChatId) {
       ok = false;
-      logger.error('  ✗ notify.telegram usato ma TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID mancano');
+      logger.error('  ✗ notify.telegram used but TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are missing');
     } else {
       try {
         const me = await telegramApi('getMe');
@@ -160,22 +160,22 @@ async function runCheck(config) {
   const HA_ACTIONS = ['ha.webhook', 'ha.service', 'ha.action', 'ha.button', 'ha.script', 'ha.automation', 'ha.notify'];
   if (HA_ACTIONS.some((t) => usedTypes.has(t))) {
     if (!env.haUrl) {
-      logger.warn('  ! azioni Home Assistant usate ma HA_URL manca in .env');
+      logger.warn('  ! Home Assistant actions used but HA_URL is missing in .env');
     } else if (!env.haToken) {
-      logger.warn('  ! azioni Home Assistant usate ma HA_TOKEN manca in .env');
+      logger.warn('  ! Home Assistant actions used but HA_TOKEN is missing in .env');
     } else {
       try {
         const cfg = await haApi('/api/config');
-        logger.info(`  ✓ home assistant: ${cfg.location_name || 'casa'} · HA ${cfg.version} · ${env.haUrl}`);
+        logger.info(`  ✓ home assistant: ${cfg.location_name || 'home'} · HA ${cfg.version} · ${env.haUrl}`);
       } catch (err) {
         ok = false;
         logger.error(`  ✗ home assistant (${env.haUrl}): ${err.message}`);
-        logger.error('     → controlla HA_URL e crea un token long-lived: Profilo → Sicurezza → Token di accesso a lunga durata');
+        logger.error('     → check HA_URL and create a long-lived token: Profile → Security → Long-lived access tokens');
       }
     }
   }
   if (usedTypes.has('shell') && !config.settings.allowShell) {
-    logger.warn('  ! azione shell usata ma settings.allowShell=false: fallirà a runtime');
+    logger.warn('  ! "shell" action used but settings.allowShell=false: it will fail at runtime');
   }
 
   // Trappola classica: \b accanto a una lettera accentata. Sembra scritto
@@ -184,23 +184,23 @@ async function runCheck(config) {
   if (trappole.length) {
     ok = false;
     for (const t of trappole) {
-      logger.error(`  ✗ regola "${t.rule}": usi \\b con una parola accentata — su quella parola non matcherà MAI`);
+      logger.error(`  ✗ rule "${t.rule}": you use \\b with an accented word — that word will NEVER match`);
       logger.error(`     ${t.pattern}`);
     }
-    logger.error('     \\b conosce solo [A-Za-z0-9_], quindi non c\'è confine accanto a è, à, ò...');
+    logger.error('     \\b only knows [A-Za-z0-9_], so there is no boundary next to è, à, ò...');
     logger.error('     → confini unicode:   flags: iu   e   (?<![\\p{L}\\p{N}])parola(?![\\p{L}\\p{N}])');
-    logger.error('     → oppure, per una lista di parole chiave, basta   mode: contains');
+    logger.error('     → or, for a plain keyword list, just use   mode: contains');
   } else {
-    logger.info('  ✓ nessun \\b accanto a parole accentate');
+    logger.info('  ✓ no \\b next to accented words');
   }
   if (!fs.existsSync(paths.rulesFile)) {
-    logger.warn(`  ! ${path.relative(paths.root, paths.rulesFile)} non esiste: copia config/rules.example.yaml`);
+    logger.warn(`  ! ${path.relative(paths.root, paths.rulesFile)} does not exist: copy config/rules.example.yaml`);
   }
 
   logger.info(`  ✓ config: ${(config.ruleFiles || []).join(' + ')}`);
   for (const w of config.warnings || []) logger.warn(`  ! rules.d: ${w}`);
 
-  logger.info(ok ? '✓ configurazione valida' : '✗ configurazione con errori');
+  logger.info(ok ? '✓ configuration valid' : '✗ configuration has errors');
   return ok ? 0 : 1;
 }
 
@@ -211,22 +211,22 @@ async function runSimulate(config, file, live) {
   // Stessa fabbrica di messaggi del pannello web: un solo posto da tenere allineato.
   const msg = buildTestMessage(sample);
 
-  logger.info({ dryRun: !live, sample: path.basename(abs) }, '▶ simulazione');
+  logger.info({ dryRun: !live, sample: path.basename(abs) }, '▶ simulation');
   const res = await handleMessage({
     config,
     msg,
     dryRun: !live,
     downloadMedia: async () => msg.mediaFile,
     send: live && config.settings.allowReply
-      ? async (jid, content) => logger.info({ jid, content }, '[simulazione] invio WhatsApp (allowReply)')
+      ? async (jid, content) => logger.info({ jid, content }, '[simulation] WhatsApp send (allowReply)')
       : null,
   });
 
-  logger.info('— risultato —');
-  logger.info(`  regole attivate: ${res.matched?.length ? res.matched.join(', ') : '(nessuna)'}`);
-  logger.info(`  trascrizione:    ${res.transcript ? JSON.stringify(res.transcript) : '(nessuna)'}`);
+  logger.info('— result —');
+  logger.info(`  rules fired: ${res.matched?.length ? res.matched.join(', ') : '(none)'}`);
+  logger.info(`  transcript:      ${res.transcript ? JSON.stringify(res.transcript) : '(none)'}`);
   for (const a of res.actions || []) {
-    logger.info(`  azione ${a.ok ? '✓' : '✗'} ${a.rule} → ${a.type}${a.error ? ` (${a.error})` : ''}`);
+    logger.info(`  action ${a.ok ? '✓' : '✗'} ${a.rule} → ${a.type}${a.error ? ` (${a.error})` : ''}`);
   }
 }
 
@@ -235,25 +235,25 @@ function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 /** Elenca jid e nomi che il programma conosce (rubrica lid <-> numero). */
 function printContacts() {
   const { me, rows, total } = directory();
-  console.log('\nRUBRICA (data/contacts.json)\n');
+  console.log('\nCONTACTS (data/contacts.json)\n');
   if (me) {
-    console.log('  Tu:');
-    console.log(`    nome        ${me.name || '(sconosciuto)'}`);
-    console.log(`    jid         ${me.jid || '(non noto)'}`);
-    console.log(`    lid         ${me.lid || '(non noto)'}`);
+    console.log('  You:');
+    console.log(`    name        ${me.name || '(unknown)'}`);
+    console.log(`    jid         ${me.jid || '(not known)'}`);
+    console.log(`    lid         ${me.lid || '(not known)'}`);
     console.log('');
   } else {
-    console.log('  Tu: ancora sconosciuto (avvia il programma almeno una volta)\n');
+    console.log('  You: still unknown (run the program at least once)\n');
   }
   if (!rows.length) {
-    console.log('  Nessun contatto salvato: i nomi arrivano dopo la prima connessione.\n');
+    console.log('  No contacts saved yet: names arrive after the first connection.\n');
     return;
   }
   for (const r of rows) {
     const alt = r.alt ? `  <->  ${r.alt}` : '';
     console.log(`  ${r.name.padEnd(24)} ${r.jid}${alt}`);
   }
-  console.log(`\n  ${total} voci totali (inclusi i gruppi)\n`);
+  console.log(`\n  ${total} entries in total (groups included)\n`);
 }
 
 /**
@@ -269,11 +269,11 @@ function acquireInstanceLock() {
     if (prev.pid && prev.pid !== process.pid) {
       try {
         process.kill(prev.pid, 0); // il processo è vivo?
-        logger.error(`un'altra istanza è già attiva (pid ${prev.pid}, avviata ${prev.startedAt}). Chiudila prima di riavviare.`);
+        logger.error(`another instance is already running (pid ${prev.pid}, started ${prev.startedAt}). Close it before restarting.`);
         process.exit(1);
       } catch (err) {
         if (err.code !== 'ESRCH') throw err;
-        logger.warn(`lock orfano del pid ${prev.pid}, lo sovrascrivo`);
+        logger.warn(`orphan lock from pid ${prev.pid}, overwriting it`);
       }
     }
   } catch (err) {
@@ -305,7 +305,7 @@ async function main() {
     config = loadConfig();
   } catch (err) {
     if (hasFlag('--check')) {
-      logger.error(`✗ configurazione non valida: ${err.message}`);
+      logger.error(`✗ invalid configuration: ${err.message}`);
       process.exit(1);
     }
     throw err;
@@ -335,14 +335,14 @@ async function main() {
   const haUsed = config.rules.some((r) => r.actions.some((a) => HA_ACTION_TYPES.has(a.type)));
   if (haUsed) {
     if (!env.haUrl || !env.haToken) {
-      logger.warn('azioni Home Assistant configurate, ma HA_URL/HA_TOKEN mancano in .env: falliranno');
+      logger.warn('Home Assistant actions configured, but HA_URL/HA_TOKEN are missing in .env: they will fail');
     } else {
       try {
         const cfg = await haApi('/api/config');
-        logger.info(`Home Assistant: ${cfg.location_name || 'casa'} · HA ${cfg.version} · ${env.haUrl}`);
+        logger.info(`Home Assistant: ${cfg.location_name || 'home'} · HA ${cfg.version} · ${env.haUrl}`);
       } catch (err) {
-        logger.error(`Home Assistant NON raggiungibile (${env.haUrl}): ${err.message}`);
-        logger.error('finché non sistemi HA_URL o la rete, le azioni ha.* falliscono senza fare nulla');
+        logger.error(`Home Assistant NOT reachable (${env.haUrl}): ${err.message}`);
+        logger.error('until you fix HA_URL or the network, ha.* actions fail doing nothing');
       }
     }
   }
@@ -353,13 +353,13 @@ async function main() {
   try {
     sweepMedia(retention());
   } catch (err) {
-    logger.warn(`pulizia media all'avvio fallita: ${err.message}`);
+    logger.warn(`media cleanup at startup failed: ${err.message}`);
   }
   setInterval(() => {
     try {
       sweepMedia(retention());
     } catch (err) {
-      logger.warn(`pulizia media fallita: ${err.message}`);
+      logger.warn(`media cleanup failed: ${err.message}`);
     }
   }, 6 * 60 * 60 * 1000).unref();
 
@@ -372,10 +372,10 @@ async function main() {
         try {
           config = loadConfig();
           configBrokenSince = null;
-          logger.info(`♻ regole ricaricate (${config.rules.length} attive)`);
+          logger.info(`♻ rules reloaded (${config.rules.length} active)`);
         } catch (err) {
           configBrokenSince = configBrokenSince || Date.now();
-          logger.error(`ricarica regole fallita, tengo le vecchie: ${err.message}`);
+          logger.error(`rule reload failed, keeping the previous ones: ${err.message}`);
         }
       }, 300);
     });
@@ -387,8 +387,8 @@ async function main() {
     if (!configBrokenSince) return;
     const minuti = Math.round((Date.now() - configBrokenSince) / 60000);
     logger.error(
-      `config/rules.yaml NON valida da ${minuti} min: sto usando le ${config.rules.length} regole di prima. ` +
-      'Controlla con: npm run check',
+      `config/rules.yaml has been invalid for ${minuti} min: still using the previous ${config.rules.length} rules. ` +
+      'Check with: npm run check',
     );
   }, 2 * 60 * 1000).unref();
 
@@ -405,15 +405,15 @@ async function main() {
         reload: async () => {
           config = loadConfig();
           configBrokenSince = null;
-          logger.info(`♻ regole ricaricate dal pannello (${config.rules.length} attive)`);
+          logger.info(`♻ rules reloaded from the panel (${config.rules.length} active)`);
           return config;
         },
       });
     } catch (err) {
-      logger.error(`pannello web non avviato: ${err.message}`);
+      logger.error(`web panel did not start: ${err.message}`);
     }
   } else {
-    logger.info('pannello web disattivato (WEB_ENABLED=true per attivarlo)');
+    logger.info('web panel disabled (WEB_ENABLED=true to turn it on)');
   }
 
   const client = startWhatsApp({
@@ -421,8 +421,8 @@ async function main() {
     onState: (s, code) => {
       // 'open' e 'close' sono già raccontati da whatsapp.js: qui solo il resto,
       // e i casi gravi, per non avere tre righe per ogni caduta di rete.
-      if (s === 'loggedOut' || s === 'fatal') logger.error({ code }, 'connessione: sessione chiusa da WhatsApp');
-      else logger.debug({ state: s, code }, 'stato connessione');
+      if (s === 'loggedOut' || s === 'fatal') logger.error({ code }, 'connection: session closed by WhatsApp');
+      else logger.debug({ state: s, code }, 'connection state');
     },
     onMessage: async (msg, { sock, downloadMedia }) => {
       await handleMessage({
@@ -450,12 +450,12 @@ async function main() {
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('unhandledRejection', (err) => logger.error({ err: String(err) }, 'promise non gestita'));
+  process.on('unhandledRejection', (err) => logger.error({ err: String(err) }, 'unhandled rejection'));
 
   process.on('exit', () => flush());
   setInterval(flush, 30000).unref();
 
-  client.ready.then(() => logger.info('✅ operativo: in ascolto dei messaggi in arrivo'));
+  client.ready.then(() => logger.info('✅ ready: listening for incoming messages'));
 
   await client.run;
 }
