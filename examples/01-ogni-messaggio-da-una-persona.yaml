@@ -1,0 +1,34 @@
+# ============================================================
+#  OGNI MESSAGGIO SCRITTO DA UNA PERSONA
+#
+#  Nessun filtro sul contenuto: basta che quella persona ti scriva.
+#  Utile per non perdere niente di un contatto importante, o per
+#  iniziare a raccogliere dati e capire cosa serve davvero.
+#
+#  In una chat 1:1 il nome della chat è il nome del contatto.
+#  Le impostazioni generali stanno solo in config/rules.yaml.
+# ============================================================
+
+rules:
+  - id: ogni-testo-da-mario
+    name: "Mario — ogni messaggio scritto"
+    priority: 100
+    enabled: false
+
+    match:
+      chatName: Mario          # "contiene": prende anche "Mario Rossi"
+      type: text
+
+    actions:
+      - type: notify.console
+        message: "💬 {{sender}}: {{text}}"
+      # al posto di notify.console puoi mettere:
+      #   - type: appendJsonl
+      #     file: data/messaggi-mario.jsonl
+      #   - type: notify.telegram
+      #     message: "{{sender}}: {{text}}"
+
+    # L'identità sicura è il jid, che non cambia mai (nemmeno se rinomini il
+    # contatto). Lo trovi con `npm run contacts`, oppure lo leggi in
+    # data/messages.jsonl dopo un messaggio:
+    #   chatJid: "390000000001@s.whatsapp.net"

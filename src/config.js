@@ -26,6 +26,7 @@ export const paths = {
   auth: path.resolve(ROOT, process.env.AUTH_DIR || 'auth'),
   data: path.resolve(ROOT, process.env.DATA_DIR || 'data'),
   config: CONFIG_DIR,
+  rulesDir: path.join(CONFIG_DIR, 'rules.d'),
   rulesFile: resolveRulesFile(),
 };
 
@@ -128,6 +129,7 @@ function normalizeRule(rule, index) {
     name: rule.name || id,
     enabled: rule.enabled !== false,
     priority: Number.isFinite(rule.priority) ? rule.priority : 100,
+    from: rule._da || '',        // file di origine, se viene da rules.d/
     match: rule.match || {},
     transcribe: rule.transcribe === true,
     classify: rule.classify || null,
@@ -138,12 +140,45 @@ function normalizeRule(rule, index) {
   };
 }
 
+/**
+ * Regole sparse da `config/rules.d/*.yaml` (o .yml), in ordine alfabetico.
+ * Ogni file contiene solo una lista `rules:` e contribuisce con le sue.
+ * Serve a tenere separate le regole per argomento e a poter copiare dentro
+ * un file dagli esempi senza incollare niente a mano.
+ */
+function loadRuleDir(dir) {
+  const out = { rules: [], files: [], warnings: [] };
+  if (!fs.existsSync(dir)) return out;
+
+  for (const nome of fs.readdirSync(dir).filter((f) => /\.ya?ml$/i.test(f)).sort()) {
+    const pieno = path.join(dir, nome);
+    let conf;
+    try {
+      conf = readJsonFile(pieno, {});
+    } catch (err) {
+      out.warnings.push(`${nome}: ${err.message}`);
+      continue;
+    }
+    if (!Array.isArray(conf.rules)) {
+      if (conf.rules !== undefined) out.warnings.push(`${nome}: "rules" deve essere una lista, ignorato`);
+      continue;
+    }
+    if (conf.settings) out.warnings.push(`${nome}: "settings" viene ignorato (sta solo nel file principale)`);
+    out.files.push(nome);
+    out.rules.push(...conf.rules.map((r) => ({ ...r, _da: nome })));
+  }
+  return out;
+}
+
 export function loadConfig(file = paths.rulesFile) {
   const fileConf = readJsonFile(file, { settings: {}, rules: [] });
   if (!Array.isArray(fileConf.rules)) {
     throw new Error(`${path.basename(file)}: "rules" deve essere una lista`);
   }
-  const rules = fileConf.rules
+
+  const sparse = loadRuleDir(paths.rulesDir);
+
+  const rules = [...fileConf.rules, ...sparse.rules]
     .map(normalizeRule)
     .filter((r) => r.enabled)
     .sort((a, b) => a.priority - b.priority);
@@ -163,6 +198,8 @@ export function loadConfig(file = paths.rulesFile) {
     rules,
     paths,
     env,
+    ruleFiles: [path.basename(file), ...sparse.files],
+    warnings: sparse.warnings,
   };
 }
 

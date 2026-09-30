@@ -1,30 +1,27 @@
 # ==============================================================
-#  wa-categorizer — regole (ESEMPIO)
+#  wa-categorizer — regole (ESEMPIO MINIMO)
 #
-#  Copialo in rules.yaml e cancella quello che non ti serve:
+#  Copialo in rules.yaml e modificatelo:
 #      copy config\rules.example.yaml config\rules.yaml
+#
+#  Questo file serve a partire: ha solo le impostazioni e due regole
+#  funzionanti. Per gli altri casi (tutti i messaggi di una persona,
+#  filtri per parola, gruppi, classificazione LLM, comandi per casa,
+#  documenti...) guarda la cartella `examples/`:
+#  ogni caso è un file a sé, con il titolo che dice cosa fa, e si copia
+#  direttamente in `config/rules.d/` senza incollare niente.
 #
 #  Salvi e le regole si ricaricano da sole: niente riavvio.
 #    npm run check       valida quello che hai scritto
 #    npm run simulate    prova un messaggio finto, senza toccare WhatsApp
 #    npm run contacts    jid, LID e nomi che il programma conosce
 #
-#  COME FUNZIONA IL MATCH
-#    - vince la PRIMA regola che combacia (in ordine di `priority`, più basso
-#      = prima). Metti `continue: true` se vuoi farne scattare più di una.
-#    - i campi testuali sono "contiene", case-insensitive: chatName: Ordini
-#      prende anche "Ordini vecchi".
-#    - type: text | audio | image | video | document | sticker | media | *
-#    - con `transcribe: true` il vocale viene trascritto PRIMA delle azioni, e
-#      nel testo si usa {{transcript}} (o {{content}}, che vale per entrambi).
-#
-#  SEGNAPOSTO USABILI NELLE STRINGHE
+#  Segnaposto usabili nelle stringhe:
 #    {{content}}  il testo, o la trascrizione se è un vocale  (il più usato)
 #    {{text}} {{transcript}} {{chat}} {{chatJid}} {{sender}} {{senderJid}}
 #    {{rule}} {{ruleName}} {{type}} {{label}} {{confidence}}
 #    {{fileName}} {{seconds}} {{date}}
-#    {{1}} {{2}} ... e {{nomeGruppo}}: le parole prese dalla regex (vedi esempio 8)
-#  Segnaposto sconosciuti restano visibili e `npm run check` li segnala.
+#    {{1}} {{2}}... e {{nomeGruppo}}: parole prese dalla regex
 # ==============================================================
 
 settings:
@@ -32,23 +29,20 @@ settings:
   transcribeAudio: true
   # Log di tutti i messaggi in data/messages.jsonl
   logMessages: true
-  # true = processa anche i messaggi che scrivi TU (serve per l'esempio 8)
+  # true = processa anche i messaggi che scrivi TU (serve per i comandi casa)
   processOwnMessages: false
   # azione "shell" (esegue comandi locali): da lasciare false
   allowShell: false
   # Quanto tenere i media scaricati in data/out/ (in giorni):
-  #   > 0  li conserva N giorni e poi li cancella
-  #   0    li cancella appena finita l'elaborazione
-  #   -1   non li cancella mai
+  #   > 0  N giorni | 0  li cancella subito | -1  mai
   mediaRetentionDays: 7
 
 
 rules:
 
-  # ============================================================
-  # 1. TESTO in una chat di lavoro: solo ordini con una quantità
-  #    È il caso classico: chat "Ordini", messaggi scritti.
-  # ============================================================
+  # ------------------------------------------------------------
+  # Ordini scritti: una quantità seguita da un prodotto
+  # ------------------------------------------------------------
   - id: ordini-scritti
     name: "Ordini — testo con quantità"
     priority: 10
@@ -60,10 +54,9 @@ rules:
       textMatch:
         mode: regex
         # flags: iu serve per i confini unicode. Con '\b...\b' (solo ASCII)
-        # una parola accentata tipo "città" non matcherebbe mai.
+        # una parola accentata non matcherebbe mai: `npm run check` avvisa.
         flags: iu
         patterns:
-          # una cifra (o un numero a parole) seguita da un prodotto
           - '(?<![\p{L}\p{N}])(?:\d+|uno|due|tre|quattro|cinque|sei|sette|otto|nove|dieci)\s+(casse|cartoni|bottiglie|pezzi|kg|chili)(?![\p{L}\p{N}])'
 
     actions:
@@ -74,11 +67,10 @@ rules:
           📝 Ordine in {{chat}} da {{sender}}:
           {{text}}
 
-
-  # ============================================================
-  # 2. VOCALE nella stessa chat: stesse parole chiave, ma trascritto
-  #    L'unica differenza con il n.1 è `type: audio` + `transcribe`.
-  # ============================================================
+  # ------------------------------------------------------------
+  # Ordini a voce: stessa idea, ma la trascrizione scrive i numeri a
+  # parole ("tre casse"), quindi qui NON si può pretendere la cifra.
+  # ------------------------------------------------------------
   - id: ordini-vocali
     name: "Ordini — vocali con parole chiave"
     priority: 11
@@ -90,8 +82,6 @@ rules:
       textMatch:
         mode: regex
         flags: iu
-        # stessa forma di sopra, ma qui NON si può pretendere la cifra:
-        # la trascrizione scrive "tre casse", non "3 casse"
         patterns:
           - '(?<![\p{L}\p{N}])(casse|cartoni|bottiglie|pezzi|kg|chili|porta\w*)(?![\p{L}\p{N}])'
 
@@ -104,315 +94,3 @@ rules:
         message: |
           🎙️ Ordine vocale in {{chat}} da {{sender}}:
           {{transcript}}
-
-
-  # ============================================================
-  # 3. TESTI da una persona privata: TUTTI i messaggi
-  #    Nessun filtro sul contenuto: basta che scriva.
-  # ============================================================
-  - id: tutto-da-mario
-    name: "Mario — qualsiasi messaggio scritto"
-    priority: 100
-    enabled: false
-
-    match:
-      chatName: Mario          # in una chat 1:1 è il nome del contatto
-      type: text
-
-    actions:
-      - type: notify.console
-        message: "💬 {{sender}}: {{text}}"
-      # se vuoi tutto in un file invece che a video, scambia le due azioni:
-      # - type: appendJsonl
-      #   file: data/messaggi-mario.jsonl
-      #
-      # NOTA: chatName è "contiene", quindi "Mario" prende anche "Mario Rossi".
-      # Per essere sicuro dell'identità usa chatJid (lo trovi con
-      # `npm run contacts`), che è immune ai cambi di nome:
-      #   chatJid: "390000000001@s.whatsapp.net"
-
-
-  # ============================================================
-  # 4. VOCALI da una persona privata: TUTTI i messaggi
-  #    Il vocale viene trascritto e passato avanti.
-  # ============================================================
-  - id: vocali-da-mario
-    name: "Mario — qualsiasi vocale, trascritto"
-    priority: 100
-    enabled: false
-
-    match:
-      chatName: Mario
-      type: audio
-
-    transcribe: true
-
-    actions:
-      - type: notify.telegram
-        message: |
-          🎙️ Voce da {{sender}}
-          {{transcript}}
-
-
-  # ============================================================
-  # 5. VOCALI da una persona, ma SOLO se dicono certe cose
-  #    "contains" = contiene una di queste parole. Niente regex, niente
-  #    confini: funziona anche con le parole accentate.
-  # ============================================================
-  - id: vocali-urgenti
-    name: "Mario — vocali solo se urgenti"
-    priority: 90
-    enabled: false
-
-    match:
-      chatName: Mario
-      type: audio
-      textMatch:
-        mode: contains
-        patterns:
-          - urgente
-          - urgentemente
-          - subito
-          - problema
-          - errore
-
-    transcribe: true
-
-    actions:
-      - type: notify.telegram
-        message: "🚨 {{sender}}: {{transcript}}"
-      - type: ha.notify
-        service: mobile_app_il_mio_telefono
-        title: "Messaggio urgente da {{sender}}"
-        message: "{{transcript}}"
-
-    # VARIANTE CON I JOLLY (regex). Prende anche le parole derivate:
-    # "urgentissimo", "problemino", "errori".
-    #   textMatch:
-    #     mode: regex
-    #     flags: iu
-    #     patterns:
-    #       - '(?<![\p{L}\p{N}])(urgent\w*|problem\w*|error\w*)(?![\p{L}\p{N}])'
-    #
-    # Con `contains` invece "oro" entrerebbe in "lavoro": se ti serve la
-    # parola intera, usa la regex.
-
-
-  # ============================================================
-  # 6. VOCALE in un GRUPPO scelto per nome, filtrato sul contenuto
-  #    chatName con "contains": "Famiglia" prende anche "Famiglia 🏠".
-  # ============================================================
-  - id: gruppo-famiglia-vocali
-    name: "Gruppo famiglia — vocali filtrati"
-    priority: 90
-    enabled: false
-
-    match:
-      isGroup: true
-      chatName: Famiglia
-      type: audio
-      textMatch:
-        mode: contains
-        patterns: [cena, ritardo, ospedale, ritiro, scuola]
-
-    transcribe: true
-
-    actions:
-      - type: notify.telegram
-        message: |
-          👨‍👩‍👧 in *{{chat}}* — {{sender}}:
-          {{transcript}}
-
-    # Se il gruppo viene rinominato spesso, usa la regex sul nome:
-    #   chatName:
-    #     mode: regex
-    #     flags: iu
-    #     patterns: ['(?<![\p{L}\p{N}])(famiglia|parenti)(?![\p{L}\p{N}])']
-    # Oppure bloccalo per jid, che non cambia mai: chatJid: "12036...@g.us"
-
-
-  # ============================================================
-  # 7. VOCALI classificati dall'LLM: lavoro o chiacchiere
-  #    Sono DUE regole sullo stesso messaggio: la prima che passa il
-  #    classificatore vince, se viene scartata si passa alla successiva.
-  #    Serve OPENAI_API_KEY in .env (con Groq: openai/gpt-oss-120b).
-  # ============================================================
-  - id: vocali-lavoro
-    name: "Mario — vocali di lavoro"
-    priority: 80
-    enabled: false
-
-    match:
-      chatName: Mario
-      type: audio
-
-    transcribe: true
-    classify:
-      labels: [lavoro]
-      minConfidence: 0.7
-      model: openai/gpt-oss-120b
-
-    actions:
-      - type: notify.telegram
-        message: "💼 *{{label}}* ({{confidence}})\n{{transcript}}"
-      - type: appendJsonl
-        file: data/lavoro.jsonl
-
-  - id: vocali-chiacchiere
-    name: "Mario — vocali non di lavoro"
-    priority: 81
-    enabled: false
-
-    match:
-      chatName: Mario
-      type: audio
-
-    transcribe: true
-    classify:
-      labels: [chiacchiere, spam]
-      minConfidence: 0.7
-      model: openai/gpt-oss-120b
-
-    actions:
-      - type: appendJsonl
-        file: data/chiacchiere.jsonl
-
-    # `classify` filtra: se il vocale non entra in nessuna etichetta, non
-    # scatta niente. Se la chiamata all'LLM fallisce, la regola NON filtra
-    # (meglio un falso positivo che un ordine perso).
-
-
-  # ============================================================
-  # 8. COMANDI PER CASA dalle note a sé stessi
-  #    Ti scrivi "accendi luce cameretta" e chiama light.turn_on su
-  #    light.cameretta. La parola catturata dalla regex diventa un
-  #    segnaposto: (?<stanza>...) → {{stanza}}
-  #
-  #    Richiede in settings: processOwnMessages: true
-  # ============================================================
-  - id: casa-accendi-luce
-    name: "Casa — «accendi luce <stanza>»"
-    priority: 5
-    enabled: false
-
-    match:
-      senderJid: "@me"                 # solo i messaggi che scrivo io
-      type: [text, audio]              # va bene sia scritto che a voce
-      textMatch:
-        mode: regex
-        flags: iu
-        patterns:
-          # (?<stanza>[\p{L}]+) cattura il nome della stanza: lettere unicode,
-          # così "cucina" e "città" funzionano uguale
-          - '(?<![\p{L}\p{N}])accendi (?:la )?luce (?:di |della |del |in )?(?<stanza>[\p{L}]+)(?![\p{L}\p{N}])'
-
-    transcribe: true
-
-    actions:
-      - type: ha.action
-        entityId: "light.{{stanza}}"    # -> light.cameretta
-        action: turn_on
-      - type: notify.console
-        message: "💡 accesa: light.{{stanza}}"
-
-  - id: casa-spegni-luce
-    name: "Casa — «spegni luce <stanza>»"
-    priority: 6
-    enabled: false
-
-    match:
-      senderJid: "@me"
-      type: [text, audio]
-      textMatch:
-        mode: regex
-        flags: iu
-        patterns:
-          - '(?<![\p{L}\p{N}])(?:spegni|spegnere|chiudi) (?:la )?luce (?:di |della |del |in )?(?<stanza>[\p{L}]+)(?![\p{L}\p{N}])'
-
-    transcribe: true
-
-    actions:
-      - type: ha.action
-        entityId: "light.{{stanza}}"
-        action: turn_off
-      - type: notify.console
-        message: "🌑 spenta: light.{{stanza}}"
-
-  # Variante "impara e basta": stesso schema, ma invece di comandare
-  # qualcosa mette la frase in uno script HA che decide lui.
-  #   - type: ha.script
-  #     script: script.casa_comandi
-  #     variables:
-  #       frase: "{{content}}"
-  #       stanza: "{{stanza}}"
-  #       chi: "{{sender}}"
-
-
-  # ============================================================
-  # 9. DOCUMENTI ricevuti: PDF e affini
-  #    {{fileName}} è il nome del file, {{content}} l'eventuale didascalia.
-  # ============================================================
-  - id: documenti-ricevuti
-    name: "Documenti ricevuti"
-    priority: 95
-    enabled: false
-
-    match:
-      chatName: Fornitore
-      type: document
-
-    actions:
-      - type: notify.telegram
-        message: |
-          📄 *{{fileName}}* da {{sender}} ({{chat}})
-          {{content}}
-      - type: appendJsonl
-        file: data/documenti.jsonl
-
-
-  # ============================================================
-  # 10. MODERAZIONE: link nei gruppi → webhook
-  # ============================================================
-  - id: link-da-moderare
-    name: "Link in gruppi"
-    priority: 120
-    enabled: false
-
-    match:
-      type: text
-      isGroup: true
-      textMatch:
-        mode: regex
-        patterns: ['https?://', 'www\.']
-
-    actions:
-      - type: webhook
-        url: https://example.com/hook
-        body:
-          motivo: link
-          chat: "{{chat}}"
-          da: "{{sender}}"
-          testo: "{{text}}"
-
-
-  # ============================================================
-  # 11. NOTA A SÉ STESSI: quello che scrivi tu, su Telegram
-  #     Utile per provare tutto il giro senza disturbare nessuno.
-  #     Richiede processOwnMessages: true
-  # ============================================================
-  - id: note-a-me-stesso
-    name: "Note a me stesso"
-    priority: 200
-    enabled: false
-
-    match:
-      senderJid: "@me"
-      type: [text, audio]
-
-    transcribe: true
-
-    actions:
-      - type: notify.console
-        message: "📝 {{content}}"
-      - type: appendJsonl
-        file: data/note.jsonl

@@ -13,6 +13,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY src/ ./src/
 COPY config/rules.example.yaml ./config/
+COPY config/rules.d/README.md ./config/rules.d/
+COPY examples/ ./examples/
 COPY fixtures/ ./fixtures/
 COPY tools/ ./tools/
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh

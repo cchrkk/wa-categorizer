@@ -1,0 +1,45 @@
+# ============================================================
+#  MODERAZIONE: LINK NEI GRUPPI
+#
+#  Non fa niente su WhatsApp (il progetto è in sola lettura): manda il
+#  link a un tuo webhook, che deciderà cosa farne.
+#
+#  Il payload, se non scrivi `body`, contiene tutto il contesto:
+#  chat, mittente, testo, tipo, trascrizione, data.
+# ============================================================
+
+rules:
+  - id: link-nei-gruppi
+    name: "Link nei gruppi"
+    priority: 120
+    enabled: false
+
+    match:
+      isGroup: true
+      type: text
+      textMatch:
+        mode: regex
+        patterns: ['https?://', 'www\.', 't\.me/']
+
+    actions:
+      # payload completo, comodo se il ricevente è tuo
+      - type: webhook
+        url: https://example.com/hook
+        headers:
+          Authorization: "Bearer {{rule}}"
+        body:
+          motivo: link
+          chat: "{{chat}}"
+          chatJid: "{{chatJid}}"
+          da: "{{sender}}"
+          daJid: "{{senderJid}}"
+          testo: "{{text}}"
+          quando: "{{date}}"
+
+      # in alternativa, un webhook di Home Assistant
+      # - type: ha.webhook
+      #   webhookId: wa_link
+
+    # Nascondere l'invio in un log invece che altrove:
+    #   - type: notify.console
+    #     message: "🔗 {{sender}} in {{chat}}: {{text}}"

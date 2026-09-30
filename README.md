@@ -132,6 +132,44 @@ Il file è **ricaricato a caldo**: salvi e le nuove regole valgono subito, senza
 Se preferisci, funziona ancora `config/rules.json` (viene usato solo se `rules.yaml` non c'è);
 puoi anche puntare a un file tuo con `--config FILE`.
 
+### Esempi pronti: `examples/`
+
+Ogni caso è **un file a sé**, con un titolo che dice cosa fa:
+
+| File | Cosa fa |
+|---|---|
+| `01-ogni-messaggio-da-una-persona` | ogni **testo** da un contatto, senza filtri |
+| `02-ogni-vocale-da-una-persona` | ogni **vocale** da un contatto, trascritto |
+| `03-vocali-filtrati-per-parole-chiave` | vocali, ma solo se dicono certe cose |
+| `04-vocali-in-un-gruppo` | vocali in un gruppo scelto per nome, filtrati |
+| `05-classificazione-lavoro-o-altro` | l'LLM decide: lavoro / chiacchiere / spam |
+| `06-comandi-casa-home-assistant` | «accendi luce cameretta» → `light.turn_on` |
+| `07-documenti-ricevuti` | PDF e allegati, con nome file |
+| `08-moderazione-link-nei-gruppi` | link nei gruppi → webhook |
+| `09-note-a-me-stesso` | quello che scrivi tu, su Telegram o in un file |
+| `10-ordini-testo` | chat ordini: testi con una quantità |
+| `11-ordini-vocali` | chat ordini: vocali, stesse parole chiave |
+
+Sono tutti **disattivati**: copiarli non fa scattare niente.
+
+### `config/rules.d/`: più file invece di uno solo
+
+Ogni `.yaml` in `config/rules.d/` viene caricato **insieme** a `rules.yaml`, in
+ordine alfabetico. Così gli esempi sono drop-in: copi un file, metti
+`enabled: true`, e funziona — senza incollare niente dentro un file unico.
+
+```bash
+mkdir -p config/rules.d
+cp examples/06-comandi-casa-home-assistant.yaml config/rules.d/
+# apri il file e metti enabled: true
+npm run check
+```
+
+Quei file possono contenere **solo** `rules:`: le `settings` valgono unicamente in
+`config/rules.yaml` (altrove vengono ignorate, con un avviso). L'ordine di
+valutazione resta deciso da `priority`; il nome del file compare nel banner di
+avvio e in `npm run check`, per sapere da dove arriva una regola.
+
 ```yaml
 settings:
   transcribeAudio: true

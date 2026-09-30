@@ -22,6 +22,11 @@ config/rules.yml
 config/rules.json
 config/*.local.yaml
 
+# Le tue regole sparse: nel repo resta solo il README della cartella
+config/rules.d/*.yaml
+config/rules.d/*.yml
+!config/rules.d/README.md
+
 # ---------------------------------------------------------------
 node_modules/
 npm-debug.log*

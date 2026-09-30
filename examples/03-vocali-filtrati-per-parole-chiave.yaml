@@ -1,0 +1,54 @@
+# ============================================================
+#  VOCALI DA UNA PERSONA, MA SOLO SE DICONO CERTE COSE
+#
+#  La trascrizione avviene comunque (serve per poter filtrare), ma le
+#  azioni partono solo se nel testo compare una delle parole.
+#
+#  `mode: contains` = "contiene una di queste stringhe". Niente regex e
+#  niente confini di parola, quindi funziona con gli accenti e non ha
+#  trappole. Il rovescio: "oro" entrerebbe in "lavOro".
+# ============================================================
+
+rules:
+  - id: vocali-urgenti-da-mario
+    name: "Mario — vocali urgenti"
+    priority: 90
+    enabled: false
+
+    match:
+      chatName: Mario
+      type: audio
+      textMatch:
+        mode: contains
+        patterns:
+          - urgente
+          - urgentemente
+          - subito
+          - problema
+          - errore
+          - richiamami
+
+    transcribe: true
+
+    actions:
+      - type: notify.telegram
+        message: "🚨 {{sender}}: {{transcript}}"
+      - type: ha.notify
+        service: mobile_app_il_mio_telefono
+        title: "Urgente da {{sender}}"
+        message: "{{transcript}}"
+
+    # ------------------------------------------------------------
+    # VARIANTE CON I JOLLY: prende anche le parole derivate
+    # ("urgentissimo", "problemino", "errori").
+    #
+    #   textMatch:
+    #     mode: regex
+    #     flags: iu
+    #     patterns:
+    #       - '(?<![\p{L}\p{N}])(urgent\w*|problem\w*|error\w*)(?![\p{L}\p{N}])'
+    #
+    # Serve `flags: iu` per i confini unicode: `\b` da solo conosce solo
+    # [A-Za-z0-9_] e non riconosce le lettere accentate, quindi
+    # '\b(città)\b' non matcherebbe mai. `npm run check` te lo segnala.
+    # ------------------------------------------------------------

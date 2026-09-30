@@ -42,10 +42,12 @@ function banner(config) {
   logger.info('─'.repeat(72));
   logger.info('🔒 modalità SOLO LETTURA — nessuna spunta blu, nessuna presenza online');
   logger.info(`wa-categorizer · trascrizione: ${transcribeBackendName()}`);
-  logger.info(`config: ${path.relative(paths.root, paths.rulesFile)}`);
+  const files = config.ruleFiles || [path.relative(paths.root, paths.rulesFile)];
+  logger.info(`config: ${files.join(' + ')}`);
   logger.info(`regole attive: ${config.rules.length}`);
   for (const r of config.rules) {
-    logger.info(`  • [${String(r.priority).padStart(3)}] ${r.id.padEnd(22)} ${describeRule(r)}`);
+    const da = r.from ? ` [${r.from}]` : '';
+    logger.info(`  • [${String(r.priority).padStart(3)}] ${r.id.padEnd(22)} ${describeRule(r)}${da}`);
   }
   logger.info('─'.repeat(72));
 }
@@ -195,7 +197,8 @@ async function runCheck(config) {
     logger.warn(`  ! ${path.relative(paths.root, paths.rulesFile)} non esiste: copia config/rules.example.yaml`);
   }
 
-  logger.info(`  ✓ config: ${path.relative(paths.root, paths.rulesFile)}`);
+  logger.info(`  ✓ config: ${(config.ruleFiles || []).join(' + ')}`);
+  for (const w of config.warnings || []) logger.warn(`  ! rules.d: ${w}`);
 
   logger.info(ok ? '✓ configurazione valida' : '✗ configurazione con errori');
   return ok ? 0 : 1;
