@@ -46,15 +46,20 @@ services:
       OPENAI_CLASSIFY_MODEL: openai/gpt-oss-120b
       TRANSCRIBE_LANGUAGE: it
 
-      # pannello web. Se lo metti a "false", commenta anche `ports:` qui sotto:
-      # altrimenti resta una porta pubblicata su tutta la LAN con niente dietro.
+      # pannello web. Il processo gira sempre: quello che si accende e si
+      # spegne e' dove si pubblica la porta (WEB_PUBLISH_IP nel .env), non
+      # questa riga. Cosi' "spento" significa davvero irraggiungibile dalla
+      # LAN, invece di una porta aperta con niente dietro.
       WEB_ENABLED: "true"
       WEB_BIND: 0.0.0.0
 
-    # Docker bypassa UFW: questa porta non è filtrata da niente. Il WEB_TOKEN
-    # nel .env è l'unica cosa in mezzo, non toglierlo.
+    # L'interruttore del pannello: WEB_PUBLISH_IP nel .env.
+    #   0.0.0.0    visibile sulla LAN di ufficio
+    #   127.0.0.1  solo dentro dkct -> di fatto spento
+    # Docker bypassa UFW: quando e' su 0.0.0.0 non c'e' nient'altro in mezzo
+    # oltre al WEB_TOKEN. Non toglierlo.
     ports:
-      - "8099:8099"
+      - "${WEB_PUBLISH_IP:-127.0.0.1}:${WEB_PORT:-8099}:${WEB_PORT:-8099}"
 
     volumes:
       # sessione WhatsApp + log + media + rubrica
