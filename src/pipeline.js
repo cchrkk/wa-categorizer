@@ -115,10 +115,14 @@ export async function handleMessage({ config, msg, send = null, downloadMedia = 
       }
     }
 
-    log.info(
-      { rule: rule.id, chat: msg.chatName, sender: msg.senderName, type: msg.type },
-      `rule fired: ${rule.name}`,
-    );
+    // Una riga che si spiega da sola: chi legge il log non ha i campi separati
+    // sotto gli occhi, e "rule fired: CMD - Pong" da solo non diceva dove né da chi.
+    const dove = [
+      msg.chatName && `"${msg.chatName}"`,
+      msg.senderName && `from ${msg.senderName}`,
+      msg.type,
+    ].filter(Boolean).join(' ');
+    log.info({ rule: rule.id }, `rule fired: ${rule.name}${dove ? ` — ${dove}` : ''}`);
     bump('ruleHits');
 
     const res = await runActions(rule.actions, {

@@ -149,6 +149,34 @@ try {
     }
   });
 
+  await check('GET /api/logs returns the last log lines', async () => {
+    const { status, body } = await j(await fetch(`${base}/api/logs?n=50`, { headers: H }));
+    assert(status === 200, `status ${status}`);
+    assert(Array.isArray(body.lines) && body.lines.length > 0, 'no lines came back');
+    assert(body.lines.some((l) => typeof l.msg === 'string'), 'the lines have no msg');
+  });
+
+  await check('POST /api/test also returns the log written during that test', async () => {
+    const { status, body } = await j(await fetch(`${base}/api/test`, {
+      method: 'POST',
+      headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatName: 'Orders', senderName: 'Mario', text: 'we need 3 boxes of red', type: 'text' }),
+    }));
+    assert(status === 200, `status ${status}`);
+    assert(Array.isArray(body.logs), 'the answer carries no logs');
+    assert(
+      body.logs.some((l) => /dry-run/.test(l.msg || '')),
+      `the dry-run lines are missing: ${JSON.stringify(body.logs)}`,
+    );
+  });
+
+  await check('GET /api/messages returns the processed messages', async () => {
+    const r = await fetch(`${base}/api/messages?n=5`, { headers: H });
+    assert(r.status === 200, `status ${r.status}`);
+    const body = await r.json();
+    assert(Array.isArray(body.messages), 'no messages array');
+  });
+
   await check('PUT /api/rules REFUSES broken yaml and does not touch the file', async () => {
     const before = fs.readFileSync(rules, 'utf8');
     const { status, body } = await j(await fetch(`${base}/api/rules`, {

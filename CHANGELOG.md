@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.0.1 — 2026-09-30
+
+### Fixed
+
+- **A restart no longer re-reports a session it has already reported.** WhatsApp hands back
+  the messages it already failed on when the instance reconnects, so ten failures pile up in
+  the first minute of every start and the per-session alert fired again: one Telegram message
+  per deploy, about a session reported minutes earlier. The session state now survives the
+  restart through `data/health.json`. A session that had been quiet for half an hour is not
+  restored, so a genuinely new break is still heard.
+
+### Changed
+
+- **The logs are readable now.** One line per event, without `pid` and `hostname`, coloured
+  only when the output is a terminal — in a container ANSI escapes are just noise. The message
+  carries the context that used to sit in separate fields:
+
+  ```
+  [16:34:42] INFO: rule fired: Orders — text with a quantity — "Orders" from Mario text
+  ```
+
+  The image ships with `LOG_PRETTY=true`; `LOG_PRETTY=false` gives the JSON back for a log
+  collector.
+- `GET /api/log` is `GET /api/messages` now — it returns the messages the program read, not
+  its log, and the name said otherwise.
+
+### Added
+
+- **The log, in the panel.** The last 500 lines are kept in memory and shown in the page, live
+  if you want it. And every test in the test bench carries **the log it produced**, so the
+  `[dry-run] action ...` lines appear next to the result instead of having to be hunted in the
+  terminal.
+
 ## 1.0.0 — 2026-09-30
 
 First release worth a number.

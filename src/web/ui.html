@@ -62,6 +62,17 @@
   .drop.over { border-color: var(--accent); color: var(--accent); }
   details { margin-top: 14px; }
   summary { cursor: pointer; color: var(--dim); font-size: 12px; }
+  label.inline { display: inline-flex; align-items: center; gap: 5px; margin: 0; }
+  .log {
+    background: #0f1115; border: 1px solid var(--line); border-radius: 7px;
+    padding: 8px 10px; max-height: 240px; overflow: auto; margin-top: 8px;
+    font: 12px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  .log .r { white-space: pre-wrap; word-break: break-word; }
+  .log .t { color: #6d7684; }
+  .log .f { color: var(--dim); }
+  .log .r.w { color: var(--warn); }
+  .log .r.e { color: var(--ko); }
 
   /* --- editor with highlighting --------------------------------------
      A coloured <pre> sits underneath and a transparent <textarea> on top:
@@ -179,6 +190,15 @@
     <input type="file" id="file" accept="audio/*" style="display:none">
 
     <div id="test-result"></div>
+
+    <details id="log-box" open>
+      <summary>Log <span class="dim" id="log-count"></span></summary>
+      <div class="row" style="margin-top:8px">
+        <button id="btn-log-refresh">Refresh</button>
+        <label class="inline"><input type="checkbox" id="log-live" checked> live, every 5s</label>
+      </div>
+      <div id="log-lines" class="log"></div>
+    </details>
   </section>
 </main>
 
@@ -354,6 +374,7 @@ function renderRules(rules) {
 $('btn-connect').onclick = () => {
   localStorage.setItem('wa_token', $('token').value.trim());
   load();
+  loadLogs();
 };
 $('token').value = token();
 
@@ -454,6 +475,18 @@ function renderResult(data) {
     d.appendChild(t2);
     c.appendChild(d);
   }
+
+  // le righe che il programma ha scritto mentre girava questa prova
+  if (data.logs && data.logs.length) {
+    const d = document.createElement('details');
+    d.open = true;
+    d.innerHTML = '<summary>log of this test (' + data.logs.length + ' lines)</summary>';
+    const box = document.createElement('div');
+    box.className = 'log';
+    box.innerHTML = data.logs.map(logLine).join('');
+    d.appendChild(box);
+    c.appendChild(d);
+  }
 }
 
 function chatParams() {
@@ -507,7 +540,49 @@ function sendAudio(f) {
   });
 }
 
-if (token()) load(); else $('status').textContent = 'enter the token';
+/* ---------------- log ---------------- */
+
+function levelClass(level) {
+  if (level >= 50) return 'e';
+  if (level >= 40) return 'w';
+  return '';
+}
+
+function logLine(l) {
+  const ora = l.time ? new Date(l.time).toLocaleTimeString('it-IT', { hour12: false }) : '';
+  const extra = Object.entries(l)
+    .filter(([k]) => !['level', 'time', 'pid', 'hostname', 'msg'].includes(k))
+    .map(([k, v]) => `${k}=${v && typeof v === 'object' ? JSON.stringify(v) : v}`)
+    .join(' ');
+  return `<div class="r ${levelClass(l.level)}"><span class="t">${ora}</span> ${esc(l.msg || '')}` +
+    `${extra ? ` <span class="f">${esc(extra)}</span>` : ''}</div>`;
+}
+
+function renderLogs(lines) {
+  const c = $('log-lines');
+  if (!lines.length) {
+    c.innerHTML = '<span class="dim">no lines yet</span>';
+    $('log-count').textContent = '';
+    return;
+  }
+  c.innerHTML = lines.map(logLine).join('');
+  $('log-count').textContent = `· ${lines.length} lines`;
+  c.scrollTop = c.scrollHeight;
+}
+
+async function loadLogs() {
+  try {
+    const r = await api('/api/logs?n=200');
+    renderLogs(r.lines || []);
+  } catch { /* i log non sono vitali: se non arrivano, si guarda altrove */ }
+}
+
+$('btn-log-refresh').onclick = loadLogs;
+setInterval(() => {
+  if ($('log-live').checked && document.visibilityState === 'visible' && token()) loadLogs();
+}, 5000);
+
+if (token()) { load(); loadLogs(); } else $('status').textContent = 'enter the token';
 </script>
 </body>
 </html>

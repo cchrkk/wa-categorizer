@@ -32,10 +32,12 @@ RUN chmod +x /usr/local/bin/entrypoint.sh \
 # Unprivileged user: nothing here needs root
 USER node
 
+# Log leggibili da chi guarda `docker logs`, una riga per evento. Con
+# LOG_PRETTY=false tornano JSON, per chi li raccoglie con qualcosa che li parsa.
 ENV NODE_ENV=production \
     DATA_DIR=/app/data \
     AUTH_DIR=/app/data/auth \
-    LOG_PRETTY=false
+    LOG_PRETTY=true
 
 VOLUME ["/app/data"]
 

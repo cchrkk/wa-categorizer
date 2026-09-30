@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { paths, loadConfig } from './config.js';
-import { childLogger } from './logger.js';
+import { childLogger, logsSince, markLogs, recentLogs } from './logger.js';
 import { ruleMatches, classifyAllows } from './rules.js';
 import { classify } from './classify.js';
 import { handleMessage } from './pipeline.js';
@@ -203,6 +203,12 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
     }
 
     try {
+      // --- le ultime righe di log, per leggerle dal pannello ---
+      if (route === 'GET /api/logs') {
+        const n = Number(url.searchParams.get('n')) || 200;
+        send(res, 200, { lines: recentLogs(n) });
+        return;
+      }
       // --- stato: regole attive + come si legge il file adesso ---
       if (route === 'GET /api/state') {
         const config = getConfig();
@@ -267,6 +273,8 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
       // --- prova con un testo ---
       if (route === 'POST /api/test') {
         const body = JSON.parse((await readBody(req, MAX_YAML_BYTES)).toString('utf8') || '{}');
+        // segnaposto: le righe scritte da qui in poi sono quelle di questo test
+        const mark = markLogs();
         const msg = buildTestMessage({ ...body, type: body.type || 'text' });
         const esiti = await explain(getConfig(), msg, msg.text);
         const res1 = await handleMessage({ config: getConfig(), msg, dryRun: true });
@@ -275,6 +283,7 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
           matched: res1.matched,
           actions: res1.actions,
           rules: esiti,
+          logs: logsSince(mark),
         });
         return;
       }
@@ -286,6 +295,7 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
           send(res, 400, { error: 'no audio received' });
           return;
         }
+        const mark = markLogs();
         const file = saveBuffer(buf, {
           subdir: 'test',
           basename: `upload-${Date.now()}`,
@@ -329,8 +339,8 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
         return;
       }
 
-      // --- ultimi messaggi processati ---
-      if (route === 'GET /api/log') {
+      // --- ultimi messaggi processati (quello che il programma ha letto) ---
+      if (route === 'GET /api/messages') {
         const n = Math.min(Number(url.searchParams.get('n') || 30), 200);
         let righe = [];
         try {
