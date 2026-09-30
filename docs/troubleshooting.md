@@ -75,6 +75,10 @@ after only ever reading, is enough to step them out of order.
 > the structured logger. The program intercepts them and counts them instead: one line with a
 > number every thirty seconds, and the counters in `data/health.json`.
 
+To go deeper, `LOG_LEVEL=debug` also **un-silences Baileys**, which by default logs nothing at
+all. Its retry lines are the only place where you can see which message is being asked for
+again, and how many times.
+
 ## A rule never fires and the file looks fine
 
 First: is the file **valid YAML**? If you save it broken (a repeated key, wrong indentation)

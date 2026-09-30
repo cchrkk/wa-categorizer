@@ -10,7 +10,7 @@ import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import fs from 'node:fs';
 import { paths } from './config.js';
-import { childLogger, silentLogger } from './logger.js';
+import { baileysLogger, childLogger } from './logger.js';
 import { extFromMimetype, saveBuffer } from './media.js';
 import {
   alternateJid,
@@ -216,7 +216,7 @@ export function startWhatsApp({ onMessage, onQr, onState = () => {}, allowReply 
         const downloadMedia = async () => {
           if (!MEDIA_TYPES.has(msg.type)) return null;
           const buffer = await downloadMediaMessage(raw, 'buffer', {}, {
-            logger: silentLogger,
+            logger: baileysLogger,
             reuploadRequest: sock.updateMediaMessage,
           });
           return saveBuffer(buffer, {
@@ -266,7 +266,7 @@ export function startWhatsApp({ onMessage, onQr, onState = () => {}, allowReply 
     const s = makeWASocket({
       version,
       auth: state,
-      logger: silentLogger,
+      logger: baileysLogger,
       browser: Browsers.macOS('Chrome'),
       // SOLO LETTURA: non ci si dichiara online alla connessione.
       // Con questo false Baileys non invia nessuno stanza di presenza:
