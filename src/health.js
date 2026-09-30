@@ -211,34 +211,73 @@ async function maybeCheck(now) {
 }
 
 /**
- * libsignal stampa gli errori di decifratura con console.error diretto: passa
- * sopra il logger (e sopra LOG_LEVEL), quindi riempie i log di stack trace che
- * nessuno puo' filtrare. Qui li intercettiamo, li contiamo e lasciamo passare
- * tutto il resto.
+ * libsignal stampa i suoi guai con console.* diretto: passa sopra il logger (e
+ * sopra LOG_LEVEL), quindi riempie i log di stack trace che nessuno puo'
+ * filtrare. Peggio: quattro di quelle stampe buttano dentro l'intera sessione,
+ * **chiavi private comprese** — succede quando si invia, non dipende da
+ * LOG_LEVEL, e finisce nei log del container.
+ *
+ * Qui si intercettano: i fallimenti di decifratura si contano (vedi
+ * recordDecryptFailure), i dump di sessione si buttano — l'evento resta, il
+ * materiale no — e tutto il resto passa intatto.
  */
-export function installDecryptWatcher() {
-  if (installDecryptWatcher.done) return;
-  installDecryptWatcher.done = true;
+const SESSION_DUMP = /^(Closing session|Opening session|Removing old closed session|Session already closed)/;
+const BENIGN = /^(Decrypted message with closed session\.|Closing open session in favor of incoming prekey bundle)/;
+const DECRYPT_CONTEXT = /Failed to decrypt message with any known session/;
+const DECRYPT_ERROR = /Session error|MessageCounterError|Bad MAC/i;
 
-  const originale = console.error;
-  console.error = (...args) => {
-    const righe = args.map((a) => (a && a.stack ? a.stack : String(a)));
-    const testo = righe.join(' ');
-    if (/Failed to decrypt message with any known session|Decrypted message with closed session/i.test(testo)) {
-      return; // la riga di contesto: il conteggio lo fa quella con lo stack
-    }
-    if (/Session error|MessageCounterError|Bad MAC/i.test(testo)) {
-      const m = testo.match(/(\d{5,}\.\d+)\s*\[as awaitable\]/);
-      recordDecryptFailure(m ? m[1] : '');
-      return;
-    }
-    originale.apply(console, args);
-  };
+/**
+ * Cosa fare di una riga che arriva da console.*:
+ *   {action:'drop'}            rumore noto — o un dump di sessione (chiavi comprese)
+ *   {action:'count', address}  un fallimento di decifratura: si conta, non si stampa
+ *   {action:'pass'}            tutto il resto
+ *
+ * È una funzione pura apposta: i test la interrogano direttamente, invece di
+ * sostituire i console del processo che li sta eseguendo (cosa che, quando l'ho
+ * fatta, ha ingoiato l'output del test stesso — e avrebbe ingoiato anche la
+ * stampa di un'eccezione non gestita).
+ */
+export function classifyConsoleLine(args) {
+  const primo = typeof args[0] === 'string' ? args[0] : '';
+  const testo = args.map((a) => (a && a.stack ? a.stack : String(a))).join(' ');
+
+  if (SESSION_DUMP.test(primo)) {
+    return { action: 'drop', dump: true, event: primo.replace(/:$/, '') };
+  }
+  if (BENIGN.test(primo)) return { action: 'drop' };
+  if (DECRYPT_CONTEXT.test(testo)) return { action: 'drop' }; // la riga di contesto: il conto lo fa quella con lo stack
+  if (DECRYPT_ERROR.test(testo)) {
+    const m = testo.match(/(\d{5,}\.\d+)\s*\[as awaitable\]/);
+    return { action: 'count', address: m ? m[1] : '' };
+  }
+  return { action: 'pass' };
+}
+
+export function installLibsignalGuard() {
+  if (installLibsignalGuard.done) return;
+  installLibsignalGuard.done = true;
+
+  for (const livello of ['log', 'info', 'warn', 'error']) {
+    const originale = console[livello].bind(console);
+    console[livello] = (...args) => {
+      const v = classifyConsoleLine(args);
+      if (v.action === 'drop') {
+        // l'evento si vede a LOG_LEVEL=debug; le chiavi no, mai
+        if (v.dump) log.debug({ libsignal: v.event }, 'session event (the dump carried private keys, dropped)');
+        return;
+      }
+      if (v.action === 'count') {
+        recordDecryptFailure(v.address);
+        return;
+      }
+      originale(...args);
+    };
+  }
 }
 
 /** Installato una volta sola, all'avvio. */
 export function startHealth() {
-  installDecryptWatcher();
+  installLibsignalGuard();
   writeHealth(true);
   const t = setInterval(() => writeHealth(true), TICK_MS);
   t.unref?.();

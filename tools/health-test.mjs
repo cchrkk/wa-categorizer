@@ -3,8 +3,9 @@
 //   node tools/health-test.mjs
 import {
   classify,
-  installDecryptWatcher,
+  classifyConsoleLine,
   readSnapshot,
+  recordDecryptFailure,
   runHealth,
   snapshot,
   writeHealth,
@@ -82,26 +83,38 @@ check('one failure is not a crisis', () => {
   eq(classify(sano({ decrypt: { total: 1, recent10m: 1, lastAt: null, lastAddress: 'x.0' } }), adesso).ok, true);
 });
 
-console.log('\nthe libsignal watcher\n');
+console.log('\nthe libsignal guard\n');
 
-check('it counts the failure, names the session, and swallows the stack trace', () => {
-  const printed = [];
-  const vero = console.error;
-  console.error = (...a) => printed.push(a.join(' ')); // il watcher cattura QUESTO come "originale"
-  installDecryptWatcher();
-  try {
-    // le due righe esatte di libsignal/src/session_cipher.js
-    console.error('Failed to decrypt message with any known session...');
-    console.error('Session error:Error: Bad MAC Error: Bad MAC', '    at async 198264414552088.0 [as awaitable] (session_cipher.js:171:28)');
-    // e una riga normale, che deve continuare a passare
-    console.error('this one is a real error and must be visible');
-  } finally {
-    console.error = vero;
-  }
+check('a session dump is dropped: it carries private keys', () => {
+  // le righe esatte di libsignal/src/session_record.js
+  const chiusa = classifyConsoleLine(['Closing session:', { currentRatchet: { ephemeralKeyPair: { privKey: Buffer.from([1]) } } }]);
+  eq(chiusa.action, 'drop');
+  eq(chiusa.dump, true, 'it must be recognised as a key dump, not as ordinary noise');
+  eq(classifyConsoleLine(['Opening session:', {}]).action, 'drop');
+  eq(classifyConsoleLine(['Session already closed', {}]).action, 'drop');
+  eq(classifyConsoleLine(['Removing old closed session:', {}]).action, 'drop');
+});
 
-  eq(printed, ['this one is a real error and must be visible'], 'only the unrelated line should have been printed');
+check('the decryption noise: the context line is dropped, the error is counted with its session', () => {
+  eq(classifyConsoleLine(['Failed to decrypt message with any known session...']).action, 'drop');
+  const v = classifyConsoleLine(['Session error:Error: Bad MAC Error: Bad MAC', '    at async 198264414552088.0 [as awaitable] (session_cipher.js:171:28)']);
+  eq(v.action, 'count');
+  eq(v.address, '198264414552088.0');
+  eq(classifyConsoleLine(['Decrypted message with closed session.']).action, 'drop');
+  eq(classifyConsoleLine(['Closing open session in favor of incoming prekey bundle']).action, 'drop');
+});
+
+check('anything that is not libsignal noise passes through', () => {
+  eq(classifyConsoleLine(['a real error']).action, 'pass');
+  eq(classifyConsoleLine([new Error('boom')]).action, 'pass');
+  eq(classifyConsoleLine(['Closing session:', {}]).action, 'drop'); // e questa no, per contrasto
+});
+
+check('a counted failure lands in the snapshot, once, with the session', () => {
+  const prima = snapshot().decrypt.total;
+  recordDecryptFailure('198264414552088.0');
   const s = snapshot();
-  eq(s.decrypt.total, 1, 'the failure was not counted');
+  eq(s.decrypt.total - prima, 1, 'it was not counted exactly once');
   eq(s.decrypt.lastAddress, '198264414552088.0', 'the session was not recorded');
   ok(s.decrypt.recent10m >= 1, 'it does not show up in the recent window');
 });
