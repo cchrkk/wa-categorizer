@@ -64,6 +64,27 @@ jobs:
             && echo "OK: called light.turn_on on light.bedroom" \
             || { echo "ERROR: entity_id never arrived"; exit 1; }
 
+      - name: Assist chat (the answer reaches the placeholder)
+        run: |
+          node tools/mock-ha.mjs 8201 > /tmp/mock-assist.log 2>&1 &
+          MOCK_PID=$!
+          sleep 2
+          export HA_URL=http://127.0.0.1:8201
+          export HA_TOKEN=test
+          node src/index.js --simulate fixtures/assist.json \
+            --config fixtures/assist.yaml --live > /tmp/assist-out.log 2>&1
+          kill "$MOCK_PID"
+          echo "--- calls received ---"
+          cat /tmp/mock-assist.log
+          echo "--- the app said ---"
+          cat /tmp/assist-out.log
+          grep -q '"text":"turn on the kitchen light"' /tmp/mock-assist.log \
+            && echo "OK: the prefix was stripped and the command reached Assist" \
+            || { echo "ERROR: the prefix never left the message"; exit 1; }
+          grep -q 'the kitchen light is on' /tmp/assist-out.log \
+            && echo "OK: the Assist answer reached the placeholder" \
+            || { echo "ERROR: the answer never arrived"; exit 1; }
+
       - name: Web panel
         run: node tools/web-smoke.mjs
 

@@ -1,0 +1,38 @@
+# Test rules for the Assist chat. In real use you would match on
+# `senderJid: "@me"`; here we match on the chat name, because this file also
+# runs in CI, which has no contact book: "@me" needs a paired account to
+# resolve to a real jid, and without one it stops with a clear error instead of
+# pretending the rule failed.
+#
+#   node tools/mock-ha.mjs 8201
+#   HA_URL=http://127.0.0.1:8201 HA_TOKEN=test \
+#     node src/index.js --simulate fixtures/assist.json \
+#     --config fixtures/assist.yaml --live
+
+settings:
+  transcribeAudio: false
+  logMessages: false
+  processOwnMessages: true
+  mediaRetentionDays: -1
+
+rules:
+  - id: assist-chat
+    name: "Assist — !<command>"
+    priority: 5
+    enabled: true
+
+    match:
+      chatName: Assist
+      type: text
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          # the prefix `!` (or `/`) is dropped, the rest is the question
+          - '^[!/]\s*(?<q>\S[\s\S]*)$'
+
+    actions:
+      - type: ha.assist
+        text: "{{q}}"
+      - type: notify.console
+        message: "🤖 {{assist}}"

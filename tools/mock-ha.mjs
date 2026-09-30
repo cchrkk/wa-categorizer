@@ -23,6 +23,18 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ location_name: 'Home (mock)', version: '2026.9.3' }));
       return;
     }
+    // Assist: the shape /api/conversation/process really answers with, so a rule
+    // can be tested through {{assist}} without touching the house.
+    if (req.url.startsWith('/api/conversation/process')) {
+      res.end(JSON.stringify({
+        response: {
+          response_type: 'action_done',
+          speech: { plain: { speech: 'Mock answered: the kitchen light is on' } },
+        },
+        conversation_id: 'mock-conversation',
+      }));
+      return;
+    }
     res.end(JSON.stringify([{ entity_id: 'mock.changed', state: 'on' }]));
   });
 });

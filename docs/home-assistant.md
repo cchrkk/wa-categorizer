@@ -91,6 +91,43 @@ Trigger an automation, turn on a light, toggle a switch:
 rendering, so `entityId: "light.{{room}}"` works (see
 [capture groups](actions.md#capture-groups-words-taken-from-the-message)).
 
+## Assist: talking to it
+
+`ha.assist` sends the text to the **conversation agent** — the same Assist the voice
+assistants use — and leaves the answer in `{{assist}}`, ready for the *next* action of the
+same rule:
+
+```yaml
+- id: assist-chat
+  name: "Assist — !<command>"
+  match:
+    senderJid: "@me"          # only what you write, so nobody else drives the house
+    type: text
+    textMatch:
+      mode: regex
+      flags: iu
+      patterns:
+        - '^[!/]\s*(?<q>\S[\s\S]*)$'
+  actions:
+    - type: ha.assist
+      text: "{{q}}"
+    - type: notify.telegram
+      message: "🤖 {{assist}}"
+```
+
+You write `!accendi la luce della cameretta` and the answer arrives on Telegram. There is
+nothing special about the prefix: it is that regex, so it can be `.`, `bot:`, `casa,`,
+whatever you like — and `(?<q>...)` is the part handed to Assist.
+
+The answer is **not** written back into the chat: this program never sends messages (the
+`reply` row in [Actions](actions.md)). Point `{{assist}}` at Telegram, at a phone
+notification (`ha.notify`), at the log (`notify.console`), at a file (`appendJsonl`).
+
+`agentId` picks a specific conversation agent (`conversation` is the default), `language`
+forces the language of the answer. To talk to Assist with your **voice**, drop the prefix
+from the pattern and match `type: [text, audio]` with `transcribe: true`: the transcript is
+what gets sent.
+
 ## Testing without touching your house
 
 There is a fake Home Assistant that logs every call it receives:

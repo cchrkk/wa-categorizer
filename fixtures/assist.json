@@ -1,0 +1,9 @@
+{
+  "chatJid": "390000000001@s.whatsapp.net",
+  "chatName": "Assist",
+  "senderJid": "390000000001@s.whatsapp.net",
+  "senderName": "Mario",
+  "fromMe": true,
+  "type": "text",
+  "text": "!turn on the kitchen light"
+}

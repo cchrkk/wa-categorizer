@@ -1,0 +1,64 @@
+# ============================================================
+#  TALK TO HOME ASSISTANT ASSIST FROM WHATSAPP
+#
+#  A prefix turns a message into a question for Assist, Home Assistant's
+#  conversation agent — the same one the voice assistants use.
+#  You write `!accendi la luce della cameretta` and Assist answers.
+#
+#  The answer is NOT sent back into the chat: this program never writes into a
+#  chat. It goes wherever you point {{assist}} — here Telegram, but
+#  notify.console, ha.notify and appendJsonl all work the same way.
+#
+#  The prefix is nothing special: it is this regex. Change it to whatever you
+#  like (`.`, `bot:`, `casa,`) and the capture group (?<q>...) is the part
+#  handed to Assist.
+#
+#  Requires HA_URL and HA_TOKEN. General settings live only in config/rules.yaml.
+# ============================================================
+
+rules:
+  - id: assist-chat
+    name: "Assist — !<command>"
+    priority: 5
+    enabled: false
+
+    match:
+      senderJid: "@me"          # only what you write: don't let others drive the house
+      type: text
+      textMatch:
+        mode: regex
+        flags: iu
+        patterns:
+          - '^[!/]\s*(?<q>\S[\s\S]*)$'
+
+    actions:
+      - type: ha.assist
+        text: "{{q}}"
+      - type: notify.telegram
+        message: "🤖 {{assist}}"
+
+      # alternatives, same answer in {{assist}}:
+      #   - type: notify.console
+      #     message: "🤖 {{assist}}"
+      #   - type: ha.notify
+      #     service: mobile_app_my_phone
+      #     title: "Assist"
+      #     message: "{{assist}}"
+
+    # To talk to Assist with your VOICE instead, drop the prefix: it makes no
+    # sense to say "!" out loud. This variant lives alongside the one above and
+    # matches on the transcription.
+    #
+    #   - id: assist-voice
+    #     name: "Assist — spoken"
+    #     priority: 6
+    #     enabled: true
+    #     transcribe: true
+    #     match:
+    #       senderJid: "@me"
+    #       type: audio
+    #     actions:
+    #       - type: ha.assist
+    #         text: "{{transcript}}"
+    #       - type: notify.telegram
+    #         message: "🤖 {{assist}}"

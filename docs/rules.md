@@ -25,6 +25,7 @@ Every use case is **its own file**, with a title that says what it does:
 | `09-notes-to-myself` | what you write yourself, to Telegram or a file |
 | `10-orders-text` | orders chat: texts with a quantity |
 | `11-orders-voice` | orders chat: voice notes, same keywords |
+| `12-assist-chat` | talk to Home Assistant Assist with a `!` prefix |
 
 They are all **disabled**: copying them does not make anything fire.
 

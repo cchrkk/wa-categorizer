@@ -10,6 +10,8 @@ const execAsync = promisify(exec);
 export function render(template, ctx) {
   if (template == null) return '';
   const map = {
+    // valori lasciati dalle azioni precedenti della stessa regola (es. {{assist}})
+    ...(ctx.outputs || {}),
     // contenuto utile: il testo scritto, oppure la trascrizione del vocale
     content: ctx.text || ctx.transcript || '',
     text: ctx.text || '',
@@ -47,14 +49,16 @@ function renderDeep(value, ctx) {
   return value;
 }
 
-async function postJson(url, body, headers = {}, method = 'POST') {
+async function postJson(url, body, headers = {}, method = 'POST', limit = 500) {
   const res = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json', ...headers },
     body: method === 'GET' ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(env.actionTimeoutMs),
   });
-  const text = (await res.text()).slice(0, 500);
+  // `limit` is for the error message: an answer we mean to use as data (Assist)
+  // must not arrive truncated.
+  const text = (await res.text()).slice(0, limit);
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
   return text;
 }
@@ -194,6 +198,56 @@ const HANDLERS = {
     await haCall(`notify/${String(service).replace(/^notify\./, '')}`, body);
   },
 
+  /**
+   * Talk to the Home Assistant **Assist** conversation agent.
+   *
+   * The text goes to /api/conversation/process and the answer is left in
+   * `{{assist}}`, ready for the *next* action of the same rule:
+   *
+   *   - type: ha.assist
+   *     text: "{{q}}"
+   *   - type: notify.telegram
+   *     message: "🤖 {{assist}}"
+   *
+   * The answer is **not** sent back into the chat: this program never writes
+   * into a chat (see the README). It goes wherever you point it — Telegram, a
+   * phone notification, the log, a file.
+   */
+  'ha.assist': async (a, ctx) => {
+    if (!env.haUrl || !env.haToken) {
+      throw new Error('HA_URL or HA_TOKEN missing in .env (see the Home Assistant section of the docs)');
+    }
+    const text = render(a.text ?? '{{content}}', ctx).trim();
+    if (!text) throw new Error('ha.assist without "text"');
+
+    const body = { text };
+    if (a.language) body.language = render(a.language, ctx);
+    const agent = a.agentId || a.agent;
+    if (agent) body.agent_id = render(agent, ctx);
+
+    const raw = await postJson(
+      `${env.haUrl}/api/conversation/process`,
+      body,
+      { Authorization: `Bearer ${env.haToken}` },
+      'POST',
+      200000,
+    );
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error(`assist: the answer is not JSON: ${raw.slice(0, 200)}`);
+    }
+
+    // { response: { response_type, speech: { plain: { speech: "..." } } } }
+    const risposta = parsed?.response || {};
+    const answer = risposta.speech?.plain?.speech || risposta.speech?.plain?.text || '';
+    ctx.outputs.assist = answer;
+    ctx.outputs.assistSpeech = answer;
+    if (!answer) log.warn({ rule: ctx.rule.id, type: risposta.response_type }, 'assist answered with an empty text');
+  },
+
   appendJsonl: async (a, ctx) => {
     if (!a.file) throw new Error('appendJsonl without "file"');
     const record = a.fields ? renderDeep(a.fields, ctx) : payload(ctx);
@@ -232,6 +286,8 @@ export const ACTION_TYPES = Object.keys(HANDLERS);
 export const PLACEHOLDERS = [
   'content', 'text', 'transcript', 'chat', 'chatJid', 'sender', 'senderJid',
   'rule', 'ruleName', 'type', 'label', 'confidence', 'fileName', 'seconds', 'date',
+  // lasciati dalle azioni precedenti: ha.assist
+  'assist', 'assistSpeech',
 ];
 
 /**
@@ -240,6 +296,8 @@ export const PLACEHOLDERS = [
  */
 export async function runActions(actions, ctx) {
   const results = [];
+  // valore che un'azione lascia a quelle che seguono (es. {{assist}})
+  ctx.outputs ||= {};
   for (const action of actions) {
     const type = action.type;
     const handler = HANDLERS[type];

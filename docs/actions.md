@@ -16,6 +16,7 @@ not stop the others, and every result is reported in the log.
 | `ha.action` | `entityId`, `action`, `data?` | generic action: `light.living_room` + `turn_on` |
 | `ha.service` | `domain`, `service`, `data?`, `entityId?` | raw Home Assistant service call |
 | `ha.webhook` | `webhookId?`, `body?` | calls a Home Assistant webhook |
+| `ha.assist` | `text`, `language?`, `agentId?` | asks **Assist**, leaves the answer in `{{assist}}` |
 | `appendJsonl` | `file`, `fields?` | appends one JSON line to a file |
 | `reply` | `text` | ⛔ **blocked**: it would write into the chat (read-only) |
 | `shell` | `command`, `cwd?`, `timeoutMs?` | runs a local command (requires `settings.allowShell: true`) |
@@ -30,6 +31,10 @@ Inside any string:
 `{{text}}`, `{{transcript}}`, `{{chat}}`, `{{chatJid}}`, `{{sender}}`, `{{senderJid}}`,
 `{{rule}}`, `{{ruleName}}`, `{{type}}`, `{{label}}` / `{{confidence}}` (from
 classification), `{{fileName}}`, `{{seconds}}`, `{{date}}`.
+
+One more, and it is a different kind of thing: `{{assist}}` does not come from the message
+but from the action before it in the same rule — it is what Home Assistant Assist answered.
+See [Assist](home-assistant.md#assist-talking-to-it).
 
 A misspelled placeholder (`{{transcriptt}}`) **stays visible** in the message instead of
 vanishing, and `npm run check` reports it.
