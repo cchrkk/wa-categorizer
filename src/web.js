@@ -320,8 +320,11 @@ export function startWeb({ port, host, token: configuredToken, reload, getConfig
 
       send(res, 404, { error: 'unknown endpoint' });
     } catch (err) {
-      log.error({ route, err: err.message }, 'panel error');
-      send(res, err.status || 500, { error: err.message });
+      const status = err.status || 500;
+      // A 4xx is something the user typed into the test bench: a warning, not
+      // an alarm. Only a real server-side failure deserves ERROR.
+      log[status >= 500 ? 'error' : 'warn']({ route, err: err.message }, 'panel error');
+      send(res, status, { error: err.message });
     }
   });
 

@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { paths, loadConfig } from '../src/config.js';
 import { startWeb } from '../src/web.js';
+import { _state } from '../src/contacts.js';
 
 const PORT = Number(process.env.SMOKE_PORT || 8199);
 const TOKEN = 'smoke-test-token';
@@ -33,7 +34,26 @@ function assert(cond, msg) {
 const dir = path.join(paths.data, 'out', 'smoke');
 fs.mkdirSync(dir, { recursive: true });
 const rules = path.join(dir, 'rules.smoke.yaml');
-fs.copyFileSync(path.join(paths.root, 'config', 'rules.example.yaml'), rules);
+
+// The example, plus a rule that matches on the *jid* instead of the name and
+// fires on your own messages. It is the case the test bench could not express
+// at all, so it gets a regression test of its own.
+const example = fs.readFileSync(path.join(paths.root, 'config', 'rules.example.yaml'), 'utf8');
+fs.writeFileSync(rules, example.replace('processOwnMessages: false', 'processOwnMessages: true') + `
+  - id: smoke-self
+    name: "Smoke — my own messages"
+    priority: 1
+    enabled: true
+
+    match:
+      senderJid: "@me"
+      type: [text, audio]
+
+    actions:
+      - type: notify.console
+        message: "{{content}}"
+`);
+
 paths.rulesFile = rules;
 
 let config = loadConfig();
@@ -94,6 +114,38 @@ try {
     const withFailures = body.rules.filter((r) => !r.matched && r.failed.length > 0);
     assert(withFailures.length > 0, 'no rule reports failed criteria');
     assert(body.matched.length === 0, 'nothing should have fired');
+  });
+
+  await check('POST /api/test resolves @me to your real account', async () => {
+    const prev = _state.me;
+    _state.me = { id: '390000000009@s.whatsapp.net', lid: '111222333444555@lid', jid: '390000000009@s.whatsapp.net', name: 'Smoke' };
+    try {
+      const { status, body } = await j(await fetch(`${base}/api/test`, {
+        method: 'POST',
+        headers: { ...H, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatName: 'Anything', senderJid: '@me', fromMe: true, text: 'hello', type: 'text' }),
+      }));
+      assert(status === 200, `status ${status}: ${body.error || ''}`);
+      assert(body.matched.includes('smoke-self'), `the "@me" rule did not fire: ${JSON.stringify(body.matched)}`);
+    } finally {
+      _state.me = prev;
+    }
+  });
+
+  await check('@me without a paired account is explained, not silently failed', async () => {
+    const prev = _state.me;
+    _state.me = null;
+    try {
+      const { status, body } = await j(await fetch(`${base}/api/test`, {
+        method: 'POST',
+        headers: { ...H, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderJid: '@me', text: 'hello', type: 'text' }),
+      }));
+      assert(status === 400, `status ${status} (expected 400, not a silent match failure)`);
+      assert(/@me/.test(body.error || ''), `the error does not mention @me: ${body.error}`);
+    } finally {
+      _state.me = prev;
+    }
   });
 
   await check('PUT /api/rules REFUSES broken yaml and does not touch the file', async () => {

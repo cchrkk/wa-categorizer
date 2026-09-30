@@ -1,6 +1,8 @@
 # Test rules for the home commands. In real use you would match on
-# `senderJid: "@me"`; here we match on the chat name so the test does not
-# depend on the contact book.
+# `senderJid: "@me"`; here we match on the chat name, because this file also
+# runs in CI, which has no contact book: "@me" needs a paired account to
+# resolve to a real jid, and without one it stops with a clear error instead of
+# pretending the rule failed.
 #
 #   node tools/mock-ha.mjs 8199
 #   HA_URL=http://127.0.0.1:8199 HA_TOKEN=test \

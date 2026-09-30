@@ -30,6 +30,14 @@ version is kept in `rules.yaml.bak`, and the file is written atomically.
 voice note is transcribed with the same engine real voice notes use, and the message is
 then run through the rule engine in `dryRun`.
 
+*Chat* and *Sender* are the **names**: they fill `chatName` and `senderName`. A rule that
+matches on `chatJid` or `senderJid` looks at the jid instead, and the two optional fields
+below take it. There you can write **`@me`** for your own account, exactly as in the rules:
+the panel resolves it to your real jid, so a `senderJid: "@me"` rule — notes to yourself,
+[home commands](home-assistant.md) — is testable like any other. If the app has never paired
+with WhatsApp it does not know which account is yours, and it says so rather than quietly
+reporting a match failure that does not exist in real life.
+
 What you get is **why** each rule matched or not:
 
 ```
@@ -37,6 +45,7 @@ rule                      why
 ─────────────────────────────────────────────────────────────
 orders-text               fails: type
 orders-voice              all criteria satisfied · actions: appendJsonl, notify.telegram
+home-turn-on-light        all criteria satisfied · actions: ha.action
 notes-to-myself           fails: senderJid, chatName
 ```
 

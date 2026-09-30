@@ -157,6 +157,14 @@
       <div><label>Chat</label><input type="text" id="chat" placeholder="Orders"></div>
       <div><label>Sender</label><input type="text" id="sender" placeholder="Mario"></div>
     </div>
+    <div class="grid2">
+      <div><label>Chat jid <span class="dim">— optional</span></label><input type="text" id="chat-jid" placeholder="@me"></div>
+      <div><label>Sender jid <span class="dim">— optional</span></label><input type="text" id="sender-jid" placeholder="@me"></div>
+    </div>
+    <div class="dim" style="margin:-3px 0 10px">
+      Chat and Sender are the <b>names</b>. A rule that matches on <code>chatJid</code> or
+      <code>senderJid</code> needs the jid: put it here, or just <code>@me</code> for your own account.
+    </div>
 
     <div class="row">
       <button class="primary" id="btn-test-text">Test text</button>
@@ -435,8 +443,12 @@ function chatParams() {
   const p = {};
   const chat = $('chat').value.trim();
   const sender = $('sender').value.trim();
+  const chatJid = $('chat-jid').value.trim();
+  const senderJid = $('sender-jid').value.trim();
   if (chat) p.chatName = chat;
   if (sender) p.senderName = sender;
+  if (chatJid) p.chatJid = chatJid;
+  if (senderJid) p.senderJid = senderJid;
   return p;
 }
 
