@@ -66,7 +66,28 @@ by far the fastest way to understand what you are doing.
 
 ---
 
-## Documentation
+## How this was built
+
+**Vibecoded.** The code and most of this documentation were written by prompting an AI; a
+human decided what to build, tried it, and reported what did not work.
+
+That has consequences worth knowing before you trust it:
+
+- **Everything claimed here was tried for real** — but only in the ways described. Where
+  something has not been verified, the text says so.
+- **AI-written code has specific failure modes**, and this project keeps the receipts:
+  `\b` that never matches an accented word, the editor selection that drifted while
+  scrolling, a rules file that silently failed to reload, a dashboard that overwrote
+  `.env` on every deploy. They are all written up in
+  [troubleshooting](docs/troubleshooting.md), with the cause.
+- **Read the code before pointing this at a number you care about.** It is plain Node, no
+  build step, a few thousand lines, and every log message tells you what it just did.
+
+The upside is real too: code, tests, documentation, CI and a container image, in a couple
+of days. The test suites in `tools/` run on every push, so a change that breaks the rule
+engine or the editor is caught before it reaches the server.
+
+---
 
 | Document | What is in it |
 |---|---|
