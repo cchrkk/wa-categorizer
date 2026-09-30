@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, describeRule, resolveRulesFile, paths, env } from './config.js';
+import { loadConfig, describeRule, resolveRulesFile, paths, env, VERSION } from './config.js';
 import { logger } from './logger.js';
 import { handleMessage } from './pipeline.js';
 import { startWhatsApp } from './whatsapp.js';
@@ -46,7 +46,7 @@ function banner(config) {
   if (config.settings.allowReply) {
     logger.warn('⚠ SENDING ENABLED — ALLOW_REPLY=true: rules can write into chats');
   }
-  logger.info(`wa-categorizer · transcription: ${transcribeBackendName()}`);
+  logger.info(`wa-categorizer ${VERSION} · transcription: ${transcribeBackendName()}`);
   const files = config.ruleFiles || [path.relative(paths.root, paths.rulesFile)];
   logger.info(`config: ${files.join(' + ')}`);
   logger.info(`rules active: ${config.rules.length}`);
@@ -81,6 +81,7 @@ async function telegramApi(method, params = {}) {  const res = await fetch(`http
 async function runCheck(config) {
   let ok = true;
   logger.info('▶ checking configuration…');
+  logger.info(`  ✓ version: ${VERSION}`);
   logger.info('  ✓ read-only: readMessages() and presence disabled at the client level');
   if (config.settings.allowReply) {
     logger.warn('  ! ALLOW_REPLY=true: rules with the "reply" action can WRITE INTO CHATS');

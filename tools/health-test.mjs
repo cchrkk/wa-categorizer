@@ -4,11 +4,14 @@
 import {
   classify,
   classifyConsoleLine,
+  countFailureBySession,
+  forgetQuietSessions,
   readSnapshot,
   recordDecryptFailure,
   runHealth,
   snapshot,
   writeHealth,
+  FORGET_QUIET_MS,
   STALE_MS,
   UNHEALTHY_FAILURES,
 } from '../src/health.js';
@@ -117,6 +120,57 @@ check('a counted failure lands in the snapshot, once, with the session', () => {
   eq(s.decrypt.total - prima, 1, 'it was not counted exactly once');
   eq(s.decrypt.lastAddress, '198264414552088.0', 'the session was not recorded');
   ok(s.decrypt.recent10m >= 1, 'it does not show up in the recent window');
+});
+
+console.log('\none alert per session, not a barrage\n');
+
+check('below the threshold it says nothing', () => {
+  const sessions = new Map();
+  let avvisi = 0;
+  for (let i = 1; i < UNHEALTHY_FAILURES; i++) {
+    if (countFailureBySession(sessions, 'x.0', adesso).alert) avvisi += 1;
+  }
+  eq(avvisi, 0, `it alerted before the threshold (${UNHEALTHY_FAILURES})`);
+});
+
+check('crossing the threshold alerts once, then it stays quiet', () => {
+  const sessions = new Map();
+  let avvisi = 0;
+  for (let i = 0; i < UNHEALTHY_FAILURES * 5; i++) {
+    if (countFailureBySession(sessions, 'x.0', adesso).alert) avvisi += 1;
+  }
+  eq(avvisi, 1, `it alerted ${avvisi} times instead of once`);
+  eq(sessions.get('x.0').alerted, true, 'the session is not marked as already reported');
+  eq(sessions.get('x.0').count, UNHEALTHY_FAILURES * 5, 'the counter is wrong');
+});
+
+check('a second session gets its own alert', () => {
+  const sessions = new Map();
+  for (let i = 0; i < UNHEALTHY_FAILURES; i++) countFailureBySession(sessions, 'a.0', adesso);
+  let avvisi = 0;
+  for (let i = 0; i < UNHEALTHY_FAILURES; i++) {
+    if (countFailureBySession(sessions, 'b.0', adesso).alert) avvisi += 1;
+  }
+  eq(avvisi, 1, 'the second session went unreported');
+});
+
+check('a session that has been quiet is forgotten, so a new episode is heard', () => {
+  const sessions = new Map();
+  for (let i = 0; i < UNHEALTHY_FAILURES; i++) countFailureBySession(sessions, 'x.0', adesso);
+  eq(forgetQuietSessions(sessions, adesso + FORGET_QUIET_MS + 1000), 1, 'it did not forget it');
+  eq(sessions.size, 0, 'the session is still there');
+  let avvisi = 0;
+  for (let i = 0; i < UNHEALTHY_FAILURES; i++) {
+    if (countFailureBySession(sessions, 'x.0', adesso + FORGET_QUIET_MS + 2000).alert) avvisi += 1;
+  }
+  eq(avvisi, 1, 'the new episode was not reported');
+});
+
+check('a session still busy is not forgotten', () => {
+  const sessions = new Map();
+  countFailureBySession(sessions, 'x.0', adesso);
+  eq(forgetQuietSessions(sessions, adesso + 1000), 0);
+  eq(sessions.size, 1);
 });
 
 console.log('\nthe snapshot on disk (what --health reads)\n');

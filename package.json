@@ -1,6 +1,6 @@
 {
   "name": "wa-categorizer",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Legge i messaggi WhatsApp via Baileys, li categorizza con regole e scatena azioni (trascrizione vocali, notifiche, webhook, HA, reply)",

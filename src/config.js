@@ -30,6 +30,15 @@ export const paths = {
   rulesFile: resolveRulesFile(),
 };
 
+/** La versione, letta una volta: serve a dire cosa sta girando. */
+export const VERSION = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version || '';
+  } catch {
+    return '';
+  }
+})();
+
 export const env = {
   logLevel: process.env.LOG_LEVEL || 'info',
 

@@ -27,6 +27,10 @@ action of the same rule can use it.
 
 Home Assistant specifics are in [home-assistant.md](home-assistant.md).
 
+> The `reply` action is the one thing here that can break in a way you cannot repair from the
+> server: read the warning in the README before turning it on
+> ([the exception](../README.md#the-one-exception-allow_reply)).
+
 ## Placeholders
 
 Inside any string:

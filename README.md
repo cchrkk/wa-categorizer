@@ -138,6 +138,31 @@ rules, and a stolen panel token should not be able to start sending messages. Re
 and presence stay off even then, and both `npm run check` and the startup banner remind you
 that sending is on.
 
+> ### ⚠️ If you turn it on, know what you are getting into
+>
+> This program is a reader with a writer bolted on, and the writer is where an unofficial
+> client is weakest. From a real deployment:
+>
+> - The Signal session that carries your account's traffic — **your own messages, and the
+>   group keys for chats where you are the only member** — is the session between this
+>   instance and your other devices, your phone first. It is also the one that breaks.
+> - When it breaks it breaks **both ways**: the instance stops reading what your phone sends
+>   (`Bad MAC` in the logs), and your phone shows **"Waiting for this message"** for what the
+>   instance sends. The reply is delivered; it just cannot be opened.
+> - **Repairing is a reset, not a cure.** Deleting the session or re-linking restores it, and
+>   neither removes the cause; each re-link also leaves one more linked device behind on your
+>   account.
+> - **It is not about the age of the session.** A session can be minutes old and already out
+>   of step, because it was rebuilt from a key the server handed over while the other side
+>   had moved on.
+>
+> So: if you need the answers **inside WhatsApp**, expect this, and use a dedicated number for
+> it. If you need the categorisation — which is what this program is for — leave `ALLOW_REPLY`
+> alone and send the answers somewhere else (Telegram, a phone notification, a file).
+>
+> Reading tolerates a broken session: WhatsApp just resends. Writing does not: your phone sits
+> there showing "waiting". The healthcheck reports the first, because that one you can see.
+
 One thing **is not up to us**, honestly: the grey double tick of **delivery**. WhatsApp's
 server generates it when the message reaches the linked device. Blue ticks are ours to
 control, and those will never arrive.

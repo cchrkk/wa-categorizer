@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { env, paths } from './config.js';
+import { env, paths, VERSION } from './config.js';
 import { childLogger } from './logger.js';
 
 const log = childLogger('health');
@@ -22,9 +22,13 @@ export const WINDOW_MS = 10 * 60 * 1000;
 export const UNHEALTHY_FAILURES = 10;
 /** Se il file non viene aggiornato da cosi' tanto, il processo è bloccato. */
 export const STALE_MS = 2 * 60 * 1000;
-/** Un alert, se le cose restano rotte, al massimo ogni ora. */
-const ALERT_EVERY_MS = 60 * 60 * 1000;
 const TICK_MS = 30 * 1000;
+/**
+ * Dopo tanto silenzio una sessione conta come "nuova": se si rompe ancora, si
+ * avvisa di nuovo. Serve a non trasformare un guasto che dura giorni in un
+ * messaggio ogni mezz'ora.
+ */
+export const FORGET_QUIET_MS = 30 * 60 * 1000;
 
 const state = {
   startedAt: new Date().toISOString(),
@@ -33,12 +37,43 @@ const state = {
   lastMessageAt: null,
   messages: 0,
   failures: [],          // timestamp dei fallimenti dentro la finestra
+  sessions: new Map(),   // sessione -> { count, firstAt, lastAt, alerted }
   totalFailures: 0,
   lastFailureAt: null,
   lastAddress: '',
-  lastAlertAt: 0,
-  lastBurstLog: 0,
 };
+
+/**
+ * Conta un fallimento per sessione e dice se è il momento di avvisare.
+ *
+ * **Un avviso per sessione, non a raffica**: il primo che arriva racconta il
+ * problema, il resto resta nei contatori. Se una sessione tace per mezz'ora
+ * viene dimenticata, così un guasto nuovo torna a farsi sentire.
+ *
+ * Pura apposta: si testa senza mandare messaggi a nessuno.
+ */
+export function countFailureBySession(sessions, address, now, soglia = UNHEALTHY_FAILURES) {
+  const chiave = address || 'unknown';
+  const s = sessions.get(chiave) || { count: 0, firstAt: now, lastAt: now, alerted: false };
+  s.count += 1;
+  s.lastAt = now;
+  const alert = !s.alerted && s.count >= soglia;
+  if (alert) s.alerted = true;
+  sessions.set(chiave, s);
+  return { address: chiave, session: s, alert };
+}
+
+/** Dimentica le sessioni silenziose da un pezzo. Ritorna quante ne ha tolte. */
+export function forgetQuietSessions(sessions, now, quietMs = FORGET_QUIET_MS) {
+  let dimenticate = 0;
+  for (const [chiave, s] of sessions) {
+    if (now - s.lastAt > quietMs) {
+      sessions.delete(chiave);
+      dimenticate += 1;
+    }
+  }
+  return dimenticate;
+}
 
 function recentFailures(now = Date.now()) {
   const cut = now - WINDOW_MS;
@@ -59,6 +94,7 @@ export function snapshot(now = Date.now()) {
   return {
     updatedAt: new Date(now).toISOString(),
     startedAt: state.startedAt,
+    version: VERSION,
     pid: process.pid,
     paired: paired(),
     connected: state.connected,
@@ -70,6 +106,10 @@ export function snapshot(now = Date.now()) {
       recent10m: recentFailures(now),
       lastAt: state.lastFailureAt,
       lastAddress: state.lastAddress,
+      sessions: [...state.sessions.entries()]
+        .map(([address, s]) => ({ address, count: s.count, lastAt: new Date(s.lastAt).toISOString(), alerted: s.alerted }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5),
     },
   };
 }
@@ -113,10 +153,14 @@ export function runHealth() {
   const out = ok ? 'healthy' : 'UNHEALTHY';
   const pezzi = [];
   if (snap) {
+    if (snap.version) pezzi.push(`v${snap.version}`);
     pezzi.push(`connected=${snap.connected}`);
     pezzi.push(`paired=${snap.paired}`);
     pezzi.push(`messages=${snap.messages}`);
     pezzi.push(`undecryptable(10m)=${snap.decrypt.recent10m}`);
+    if (snap.decrypt.sessions && snap.decrypt.sessions.length) {
+      pezzi.push(`sessions=${snap.decrypt.sessions.map((s) => `${s.address}(${s.count}${s.alerted ? ',alerted' : ''})`).join(',')}`);
+    }
     if (snap.lastMessageAt) pezzi.push(`last message=${snap.lastMessageAt}`);
   }
   console.log(`wa-categorizer: ${out} — ${pezzi.join(' ') || 'no data'}`);
@@ -124,18 +168,18 @@ export function runHealth() {
   return ok ? 0 : 1;
 }
 
-async function alertOnce(reasons, count) {
+/**
+ * Un avviso, e uno solo per sessione: quando ci si è accorti del problema.
+ * Sta zitto finché quella sessione non tace per mezz'ora e si rompe di nuovo.
+ */
+async function sendAlert(address, count) {
   if (!env.healthNotify || !env.telegramToken || !env.telegramChatId) return;
-  const now = Date.now();
-  if (now - state.lastAlertAt < ALERT_EVERY_MS) return;
-  state.lastAlertAt = now;
   const testo = [
-    '⚠️ wa-categorizer is not well',
-    ...reasons.map((r) => `• ${r}`),
-    '',
-    count > 0 ? 'WhatsApp is delivering messages this instance cannot decrypt. It is not reading them.' : '',
+    '⚠️ wa-categorizer is not decrypting',
+    `• session ${address}: ${count} messages so far`,
+    'WhatsApp is delivering messages this instance cannot read. It is not reading them.',
     'On the server:  docker compose exec wa-categorizer node src/index.js --health',
-  ].filter(Boolean).join('\n');
+  ].join('\n');
   try {
     const res = await fetch(`https://api.telegram.org/bot${env.telegramToken}/sendMessage`, {
       method: 'POST',
@@ -144,7 +188,7 @@ async function alertOnce(reasons, count) {
       signal: AbortSignal.timeout(env.actionTimeoutMs),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    log.info('health alert sent to Telegram');
+    log.info({ session: address }, 'health alert sent to Telegram');
   } catch (err) {
     log.warn({ err: err.message }, 'could not send the health alert');
   }
@@ -184,6 +228,14 @@ export function markMessage() {
  * dicono niente che non dica un numero. Si tiene il conto e si scrive una riga
  * ogni mezzo minuto, con la sessione coinvolta.
  */
+/**
+ * Un messaggio che non siamo riusciti a decifrare.
+ *
+ * Non se ne logga uno per uno — cento righe non dicono niente che non dica un
+ * numero — e non si avvisa a raffica: **un avviso per sessione**, la prima volta
+ * che supera la soglia. Il resto sta nei contatori di `data/health.json`, che
+ * `--health` legge.
+ */
 export function recordDecryptFailure(address = '') {
   const now = Date.now();
   state.failures.push(now);
@@ -192,22 +244,15 @@ export function recordDecryptFailure(address = '') {
   if (address) state.lastAddress = address;
   recentFailures(now);
 
-  if (now - state.lastBurstLog > 30000) {
-    state.lastBurstLog = now;
+  const { session, alert, address: chiave } = countFailureBySession(state.sessions, address, now);
+  if (alert) {
     log.warn(
-      { undecryptable: state.failures.length, window: '10m', session: state.lastAddress || undefined },
-      'messages arriving that cannot be decrypted: this instance is not reading them',
+      { session: chiave, undecryptable: session.count },
+      'a session is delivering messages that cannot be decrypted: this instance is not reading them',
     );
+    void sendAlert(chiave, session.count);
   }
   writeHealth();
-  void maybeCheck(now);
-}
-
-async function maybeCheck(now) {
-  const recent = recentFailures(now);
-  if (recent < UNHEALTHY_FAILURES) return;
-  const { reasons } = classify(snapshot(now), now);
-  await alertOnce(reasons, recent);
 }
 
 /**
@@ -279,7 +324,12 @@ export function installLibsignalGuard() {
 export function startHealth() {
   installLibsignalGuard();
   writeHealth(true);
-  const t = setInterval(() => writeHealth(true), TICK_MS);
+  const t = setInterval(() => {
+    // le sessioni silenziose da mezz'ora si dimenticano: se si rompono di nuovo,
+    // l'avviso torna a farsi sentire
+    forgetQuietSessions(state.sessions, Date.now());
+    writeHealth(true);
+  }, TICK_MS);
   t.unref?.();
   return t;
 }
