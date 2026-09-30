@@ -1,26 +1,25 @@
 # ==============================================================
-#  wa-categorizer — stack Docker
+#  wa-categorizer — stack Docker "generico"
 #
-#  Da questo file e da un .env accanto (vedi .env.example) parte tutto.
-#  Le regole stanno in ./config/rules.yaml.
+#  Per un host qualsiasi: costruisce l'immagine da questo repo.
+#  Su dkct NON si usa questo file (vedi deploy/dkct/): lì il build via
+#  Dockhand non funziona e serve `deploy/dkct/compose.yaml`.
 #
-#  L'app NON ascolta su nessuna porta: parla solo in uscita verso
-#  WhatsApp, Telegram, Groq e Home Assistant. Niente `ports:` di
-#  proposito (Docker bypassa UFW, vedi INFRA.md).
+#  L'app NON ascolta su nessuna porta, a parte il pannello web se lo accendi.
+#  Niente `ports:` per il resto: Docker bypassa UFW, quindi non pubblicare
+#  nulla è la difesa più semplice.
 # ==============================================================
 
 services:
   wa-categorizer:
-    # L'immagine arriva già costruita da GitHub Actions (vedi .github/workflows/docker.yml).
-    # Per costruirla in locale invece:  docker compose up -d --build  con il blocco build qui sotto.
-    image: ghcr.io/cchrkk/wa-categorizer:latest
-    # build:
-    #   context: .
+    build:
+      context: .
+    image: wa-categorizer:latest
     container_name: wa-categorizer
     restart: unless-stopped
 
-    # Ha già tini come entrypoint: i segnali arrivano a node e il
-    # salvataggio su disco (regole, rubrica, stato) va a termine.
+    # Ha già tini come entrypoint: i segnali arrivano a node e il salvataggio
+    # su disco (regole, rubrica, stato) va a termine.
     stop_grace_period: 20s
 
     env_file:
@@ -30,22 +29,19 @@ services:
       AUTH_DIR: /app/data/auth
       TZ: Europe/Rome
       LOG_PRETTY: "false"
-      # dentro il container deve ascoltare su tutte le interfacce:
-      # è il binding dell'host (WEB_PUBLISH_IP) a decidere se è visibile in LAN
+      LOG_LEVEL: info
       WEB_BIND: 0.0.0.0
 
-    # Pannello web. Il binding sull'host lo scegli con WEB_PUBLISH_IP nel .env:
-    #   127.0.0.1  solo la macchina che ospita il container (default)
+    # Pannello web: apri questa porta solo se WEB_ENABLED=true.
+    #   127.0.0.1  solo questa macchina (default, sicuro)
     #   0.0.0.0    visibile sulla LAN
-    # Le altre porte non esistono: l'app non ascolta su nient'altro.
     ports:
       - "${WEB_PUBLISH_IP:-127.0.0.1}:${WEB_PORT:-8099}:${WEB_PORT:-8099}"
 
     volumes:
-      # sessione WhatsApp + log + media + rubrica: persistono al rebuild
+      # sessione WhatsApp, log, media, rubrica
       - wa-data:/app/data
-      # le regole restano fuori dall'immagine: le modifichi senza ricostruire.
-      # Il file è ricaricato a caldo, senza riavviare il container.
+      # regole fuori dall'immagine: ricarica a caldo, niente rebuild
       - ./config:/app/config
 
     logging:

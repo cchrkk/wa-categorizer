@@ -3,28 +3,21 @@
 #
 #  Layout sul server:
 #    /data/stacks/wa-categorizer/
-#    ├─ compose.yaml   questo file (gestito da Dockhand, env 2)
-#    ├─ app/           clone del repo (deploy key read-only "dkct")
-#    ├─ .env           segreti (Groq, Telegram) — mode 600
+#    ├─ compose.yaml   questo file (modificabile dal pannello di Dockhand)
+#    ├─ .env           SOLO segreti — vedi sotto
 #    ├─ config/        rules.yaml, bind-montato: si ricarica a caldo
 #    └─ data/          sessione WhatsApp, log, media, rubrica
 #
-#  Differenza dall'omologo in radice: qui il build context è ./app
-#  (il repo è privato, quindi niente pull da GHCR senza token) e i dati
-#  sono bind mount invece di un volume nominale, così si ispezionano
-#  e si backuppano come tutto il resto di /data/stacks.
+#  Perché non c'è un `build:`: l'agent Hawser di dkct gira con
+#  ProtectHome=true (vedi la sua unit systemd), quindi /root è read-only e
+#  buildx non riesce a creare /root/.docker. Il `pull` invece funziona.
+#  Quindi l'immagine arriva già costruita da GitHub Actions su GHCR.
 # ==============================================================
 
 services:
   wa-categorizer:
-    # L'immagine si costruisce sull'host con deploy/dkct/update.sh.
-    #
-    # Perché non `build:` qui: l'agent Hawser di dkct gira con
-    # `ProtectHome=true` (vedi /etc/systemd/system/hawser.service), quindi
-    # /root è read-only e buildx non può creare /root/.docker. Il pull invece
-    # non ha problemi. Quindi: build via SSH, avvio via Dockhand.
-    image: wa-categorizer:latest
-    pull_policy: never
+    image: ghcr.io/cchrkk/wa-categorizer:latest
+    pull_policy: always
     container_name: wa-categorizer
     restart: unless-stopped
 
@@ -32,22 +25,36 @@ services:
     # salvataggio di rubrica, stato e regole va a termine prima di uscire.
     stop_grace_period: 20s
 
+    # --- segreti: restano nel .env, accanto a questo file ---
+    #     OPENAI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, HA_TOKEN,
+    #     WEB_TOKEN, HA_URL (indirizzo interno)
     env_file:
       - .env
+
+    # --- tutto il resto qui: così è visibile e modificabile da Dockhand ---
     environment:
       DATA_DIR: /app/data
       AUTH_DIR: /app/data/auth
       TZ: Europe/Rome
       LOG_PRETTY: "false"
-      # dentro il container ascolta su tutte le interfacce: è il binding
-      # sull'host (WEB_PUBLISH_IP) a decidere se si vede in LAN
+      LOG_LEVEL: info
+
+      # trascrizione (la chiave sta nel .env)
+      TRANSCRIBE_BACKEND: openai
+      OPENAI_BASE_URL: https://api.groq.com/openai/v1
+      OPENAI_TRANSCRIBE_MODEL: whisper-large-v3-turbo
+      OPENAI_CLASSIFY_MODEL: openai/gpt-oss-120b
+      TRANSCRIBE_LANGUAGE: it
+
+      # pannello web. Se lo metti a "false", commenta anche `ports:` qui sotto:
+      # altrimenti resta una porta pubblicata su tutta la LAN con niente dietro.
+      WEB_ENABLED: "true"
       WEB_BIND: 0.0.0.0
 
-    # Pannello web. Con WEB_PUBLISH_IP=0.0.0.0 è visibile sulla LAN di ufficio.
-    # Docker bypassa UFW: questa porta non è filtrata da niente, quindi il
-    # WEB_TOKEN non è opzionale.
+    # Docker bypassa UFW: questa porta non è filtrata da niente. Il WEB_TOKEN
+    # nel .env è l'unica cosa in mezzo, non toglierlo.
     ports:
-      - "${WEB_PUBLISH_IP:-127.0.0.1}:${WEB_PORT:-8099}:${WEB_PORT:-8099}"
+      - "8099:8099"
 
     volumes:
       # sessione WhatsApp + log + media + rubrica

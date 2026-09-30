@@ -1,24 +1,28 @@
 #!/bin/sh
-# Aggiorna wa-categorizer su dkct: codice, immagine, riavvio.
+# Aggiorna wa-categorizer su dkct.
 #
-#   ssh root@192.168.1.100 'sh /data/stacks/wa-categorizer/app/deploy/dkct/update.sh'
+#   ssh root@<host> 'sh /data/stacks/wa-categorizer/app/deploy/dkct/update.sh'
 #
-# Il build lo fa qui e non Dockhand di proposito: l'agent Hawser gira con
-# ProtectHome=true e /root read-only, quindi buildx non riesce a scrivere
-# /root/.docker. Via SSH non c'è quel vincolo.
+# Scarica l'immagine già costruita da GitHub Actions e riavvia lo stack.
+# Nessun build qui: su dkct non funzionerebbe (l'agent Hawser ha /root in
+# sola lettura, buildx non può creare /root/.docker).
+#
+# Di norma NON serve questo script: il compose ha `pull_policy: always`, quindi
+# basta un "recreate" dal pannello di Dockhand per prendere l'ultima immagine.
 set -e
 
 DIR=/data/stacks/wa-categorizer
 cd "$DIR"
 
-echo "→ aggiorno il codice"
-git -C app pull --ff-only
+echo "→ allineo il compose dal repo (se presente)"
+if [ -f app/deploy/dkct/compose.yaml ]; then
+  cp app/deploy/dkct/compose.yaml compose.yaml
+else
+  echo "  (nessun clone del repo: uso il compose già presente)"
+fi
 
-echo "→ allineo il compose da deploy/dkct/compose.yaml (fonte unica: il repo)"
-cp app/deploy/dkct/compose.yaml compose.yaml
-
-echo "→ ricostruisco l'immagine"
-docker build -t wa-categorizer:latest app
+echo "→ scarico l'ultima immagine"
+docker compose pull
 
 echo "→ riavvio lo stack"
 docker compose up -d

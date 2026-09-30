@@ -1,31 +1,24 @@
 # Deploy su dkct
 
-Stack: `wa-categorizer` sull'environment **2** di Dockhand (`https://il-pannello.example.tld`).
-Gira in `/data/stacks/wa-categorizer/` sull'host dkct.
+Stack `wa-categorizer` sull'environment **2** di Dockhand, in
+`/data/stacks/wa-categorizer/` sull'host.
 
 ```text
 /data/stacks/wa-categorizer/
-├─ compose.yaml     gestito da Dockhand  (questo file, adattato)
-├─ app/             clone del repo via deploy key read-only "dkct"
-├─ .env             segreti: Groq + Telegram           (mode 600)
+├─ compose.yaml      modificabile dal pannello di Dockhand
+├─ .env              SOLO segreti (mode 600)
 ├─ config/rules.yaml regole, bind-montate → ricarica a caldo
-└─ data/            sessione WhatsApp, log, media, rubrica
+└─ data/             sessione WhatsApp, log, media, rubrica
 ```
 
-## Perché il build è locale e non da GHCR
+## L'immagine arriva da GHCR
 
-Il repo è **privato**, quindi anche il pacchetto GHCR è privato e dkct dovrebbe fare
-`docker login ghcr.io` con un token con scope `read:packages`. Si può fare, ma è un segreto
-in più da gestire. Qui invece dkct clona il repo (deploy key read-only, nessun token) e
-costruisce l'immagine in locale.
+L'immagine la costruisce **GitHub Actions** a ogni push su `main` e la pubblica
+su `ghcr.io/cchrkk/wa-categorizer`. Il server la scarica: nessun build, nessun
+clone del repo.
 
-Il workflow `.github/workflows/docker.yml` resta e continua a girare: valida che
-l'immagine si costruisca a ogni push, così un Dockerfile rotto si scopre in CI e non sul
-server.
-
-## Perché il build non lo fa Dockhand
-
-L'agent Hawser di dkct gira con questa unit:
+Il motivo per cui il build **non** può farlo Dockhand: l'agent Hawser di dkct
+gira con queste restrizioni.
 
 ```ini
 ProtectSystem=strict
@@ -33,32 +26,39 @@ ProtectHome=true
 ReadWritePaths=/var/run/docker.sock /data/stacks
 ```
 
-`ProtectHome=true` rende `/root` un tmpfs inaccessibile, quindi `docker compose build` non
-può creare `/root/.docker` e fallisce con:
+`ProtectHome=true` rende `/root` inaccessibile in scrittura, quindi
+`docker compose build` non riesce a creare `/root/.docker` e fallisce con
+`mkdir /root/.docker: read-only file system`. Il `pull` non ha questo problema.
 
-```
-mkdir /root/.docker: read-only file system
-```
+## Segreti contro configurazione
 
-Non vale la pena indebolire la unit: **il build si fa via SSH, l'avvio lo fa Dockhand**.
-Da qui `pull_policy: never` e nessun `build:` nel compose dello stack.
+| Dove | Cosa | Perché |
+|---|---|---|
+| **`.env`** | `OPENAI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `HA_TOKEN`, `WEB_TOKEN`, `HA_URL` | sono segreti (o indirizzi interni) e non vanno né nel repo né nel compose |
+| **`compose.yaml`** | `LOG_LEVEL`, `TRANSCRIBE_*`, `WEB_ENABLED`, `WEB_BIND`, … | non sono segreti, e nel compose sono **visibili e modificabili dal pannello di Dockhand** |
 
-Se un giorno si vuole che Dockhand ricostruisca da solo, la via più pulita è pubblicare
-l'immagine su GHCR (il workflow la costruisce già) e fare `docker login ghcr.io` una volta
-sola sulla macchina.
+Se un valore ti serve modificabile dall'interfaccia, mettilo in `environment:`
+nel compose — `env_file` Dockhand non lo mostra.
+
+`if` `WEB_ENABLED` è `false`, **commenta anche `ports:`**: altrimenti resta una
+porta pubblicata su tutta la LAN con niente dietro.
 
 ## Aggiornare
 
-```bash
-ssh root@192.168.1.100 'sh /data/stacks/wa-categorizer/app/deploy/dkct/update.sh'
-```
+Dal pannello di Dockhand: **recreate** dello stack (il compose ha
+`pull_policy: always`, quindi prende l'ultima immagine).
 
-Fa `git pull`, ricostruisce l'immagine e riavvia lo stack.
+Oppure da riga di comando:
+
+```bash
+ssh root@<host> 'sh /data/stacks/wa-categorizer/app/deploy/dkct/update.sh'
+```
 
 `data/` non viene toccato: **la sessione WhatsApp resta**, niente QR da rifare.
 
-Per ricaricare solo le regole non serve niente: si salva `config/rules.yaml` e il
-programma le rilegge da solo (watch sul file).
+Per ricaricare solo le regole non serve niente: si salva `config/rules.yaml` e
+il programma le rilegge da solo (watch sul file). Anche la rete è comoda:
+`config/rules.yaml` è un file di testo, si modifica dalla LAN.
 
 ## Primo avvio / sessione WhatsApp
 
@@ -69,19 +69,15 @@ WhatsApp → *Dispositivi collegati*:
 docker compose logs -f wa-categorizer
 ```
 
-Se invece ci si copia dentro una sessione già attiva, il container parte già collegato.
-Attenzione: due processi con la stessa `auth/` si contendono la connessione e WhatsApp
-risponde **440 connection replaced** fino allo stop di uno dei due.
+Se invece ci si copia dentro una sessione già attiva, il container parte già
+collegato. Attenzione: **due processi con la stessa `auth/` si contendono la
+connessione** e WhatsApp risponde `440 connection replaced` in loop fino allo
+stop di uno dei due.
 
 ## Verifiche
 
 ```bash
-# config valida dentro il container
 docker compose exec wa-categorizer node src/index.js --check
-
-# jid, LID e nomi che conosce
 docker compose exec wa-categorizer node src/index.js --contacts
-
-# ultimi messaggi processati
 docker compose exec wa-categorizer tail -5 data/messages.jsonl
 ```
