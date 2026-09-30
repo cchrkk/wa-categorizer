@@ -75,6 +75,34 @@ export function forgetQuietSessions(sessions, now, quietMs = FORGET_QUIET_MS) {
   return dimenticate;
 }
 
+/**
+ * Riprende le sessioni già segnalate dalla fotografia precedente.
+ *
+ * Senza questo, ogni riavvio ripartirebbe da zero e — siccome WhatsApp
+ * riconsegna i messaggi su cui ha già fallito — **ogni deploy manderebbe un
+ * avviso sulla stessa sessione**, che è la raffica che si voleva evitare, solo
+ * spalmata nel tempo. Una sessione che taceva da mezz'ora invece si riascolta:
+ * quello è un guasto nuovo.
+ *
+ * Pura anche questa, così si testa senza toccare il disco.
+ */
+export function restoreSessions(sessions, snap, now, quietMs = FORGET_QUIET_MS) {
+  const salvate = snap && snap.decrypt && Array.isArray(snap.decrypt.sessions) ? snap.decrypt.sessions : [];
+  let riprese = 0;
+  for (const s of salvate) {
+    const quando = Date.parse(s.lastAt);
+    if (!s.address || !Number.isFinite(quando) || now - quando > quietMs) continue;
+    sessions.set(s.address, {
+      count: Number(s.count) || 0,
+      firstAt: quando,
+      lastAt: quando,
+      alerted: Boolean(s.alerted),
+    });
+    riprese += 1;
+  }
+  return riprese;
+}
+
 function recentFailures(now = Date.now()) {
   const cut = now - WINDOW_MS;
   while (state.failures.length && state.failures[0] < cut) state.failures.shift();
@@ -323,6 +351,10 @@ export function installLibsignalGuard() {
 /** Installato una volta sola, all'avvio. */
 export function startHealth() {
   installLibsignalGuard();
+  // le sessioni già segnalate prima del riavvio restano segnalate: il backlog
+  // che si ripresenta al reconnect non deve far ripartire l'avviso
+  const riprese = restoreSessions(state.sessions, readSnapshot(), Date.now());
+  if (riprese) log.debug({ riprese }, 'sessions already reported before the restart');
   writeHealth(true);
   const t = setInterval(() => {
     // le sessioni silenziose da mezz'ora si dimenticano: se si rompono di nuovo,

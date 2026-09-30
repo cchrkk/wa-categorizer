@@ -8,6 +8,7 @@ import {
   forgetQuietSessions,
   readSnapshot,
   recordDecryptFailure,
+  restoreSessions,
   runHealth,
   snapshot,
   writeHealth,
@@ -171,6 +172,36 @@ check('a session still busy is not forgotten', () => {
   countFailureBySession(sessions, 'x.0', adesso);
   eq(forgetQuietSessions(sessions, adesso + 1000), 0);
   eq(sessions.size, 1);
+});
+
+check('a session already reported before a restart does not report again', () => {
+  const sessions = new Map();
+  const snap = { decrypt: { sessions: [{ address: 'x.0', count: 40, lastAt: new Date(adesso).toISOString(), alerted: true }] } };
+  eq(restoreSessions(sessions, snap, adesso), 1, 'it did not restore the session');
+  let avvisi = 0;
+  for (let i = 0; i < UNHEALTHY_FAILURES; i++) {
+    if (countFailureBySession(sessions, 'x.0', adesso).alert) avvisi += 1;
+  }
+  eq(avvisi, 0, 'the backlog that came back after the restart made it alert again');
+});
+
+check('a session silent for half an hour is a new story', () => {
+  const sessions = new Map();
+  const vecchia = new Date(adesso - FORGET_QUIET_MS - 60000).toISOString();
+  const snap = { decrypt: { sessions: [{ address: 'x.0', count: 40, lastAt: vecchia, alerted: true }] } };
+  eq(restoreSessions(sessions, snap, adesso), 0, 'it restored a session that had been quiet for too long');
+  let avvisi = 0;
+  for (let i = 0; i < UNHEALTHY_FAILURES; i++) {
+    if (countFailureBySession(sessions, 'x.0', adesso).alert) avvisi += 1;
+  }
+  eq(avvisi, 1, 'the new break was not reported');
+});
+
+check('nothing to restore is not an error', () => {
+  eq(restoreSessions(new Map(), null, adesso), 0);
+  eq(restoreSessions(new Map(), {}, adesso), 0);
+  eq(restoreSessions(new Map(), { decrypt: {} }, adesso), 0);
+  eq(restoreSessions(new Map(), { decrypt: { sessions: [{ address: '' }] } }, adesso), 0);
 });
 
 console.log('\nthe snapshot on disk (what --health reads)\n');
