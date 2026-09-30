@@ -1,0 +1,58 @@
+# ==============================================================
+#  wa-categorizer — stack Docker
+#
+#  Da questo file e da un .env accanto (vedi .env.example) parte tutto.
+#  Le regole stanno in ./config/rules.yaml.
+#
+#  L'app NON ascolta su nessuna porta: parla solo in uscita verso
+#  WhatsApp, Telegram, Groq e Home Assistant. Niente `ports:` di
+#  proposito (Docker bypassa UFW, vedi INFRA.md).
+# ==============================================================
+
+services:
+  wa-categorizer:
+    # L'immagine arriva già costruita da GitHub Actions (vedi .github/workflows/docker.yml).
+    # Per costruirla in locale invece:  docker compose up -d --build  con il blocco build qui sotto.
+    image: ghcr.io/cchrkk/wa-categorizer:latest
+    # build:
+    #   context: .
+    container_name: wa-categorizer
+    restart: unless-stopped
+
+    # Ha già tini come entrypoint: i segnali arrivano a node e il
+    # salvataggio su disco (regole, rubrica, stato) va a termine.
+    stop_grace_period: 20s
+
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data
+      AUTH_DIR: /app/data/auth
+      TZ: Europe/Rome
+      LOG_PRETTY: "false"
+      # dentro il container deve ascoltare su tutte le interfacce:
+      # è il binding dell'host (WEB_PUBLISH_IP) a decidere se è visibile in LAN
+      WEB_BIND: 0.0.0.0
+
+    # Pannello web. Il binding sull'host lo scegli con WEB_PUBLISH_IP nel .env:
+    #   127.0.0.1  solo la macchina che ospita il container (default)
+    #   0.0.0.0    visibile sulla LAN
+    # Le altre porte non esistono: l'app non ascolta su nient'altro.
+    ports:
+      - "${WEB_PUBLISH_IP:-127.0.0.1}:${WEB_PORT:-8099}:${WEB_PORT:-8099}"
+
+    volumes:
+      # sessione WhatsApp + log + media + rubrica: persistono al rebuild
+      - wa-data:/app/data
+      # le regole restano fuori dall'immagine: le modifichi senza ricostruire.
+      # Il file è ricaricato a caldo, senza riavviare il container.
+      - ./config:/app/config
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  wa-data:

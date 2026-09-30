@@ -1,0 +1,13 @@
+# Normalizza i line ending: il codice e gli script Docker girano su Linux.
+# I .bat sono l'eccezione: Windows li vuole CRLF.
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+*.png binary
+*.jpg binary
+*.ogg binary
+*.wav binary
+package-lock.json -diff linguist-generated

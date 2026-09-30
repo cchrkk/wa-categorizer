@@ -1,0 +1,36 @@
+# ---------------------------------------------------------------
+#  SEGRETI — questi file non devono MAI finire nel repository
+# ---------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+
+# Sessione WhatsApp: chi la possiede controlla l'account. Mai condividerla.
+auth/
+
+# ---------------------------------------------------------------
+#  Dati personali: messaggi, media, nomi e numeri dei contatti, stato
+#  (si tiene solo il README che spiega cosa ci finisce dentro)
+# ---------------------------------------------------------------
+data/*
+!data/README.md
+
+# Configurazione personale (nomi, jid, numeri reali).
+# Nel repo c'è solo config/rules.example.yaml
+config/rules.yaml
+config/rules.yml
+config/rules.json
+config/*.local.yaml
+
+# ---------------------------------------------------------------
+node_modules/
+npm-debug.log*
+*.log
+tmp/
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,11 @@
+{
+  "chatJid": "390000000000@s.whatsapp.net",
+  "chatName": "Ordini",
+  "senderJid": "390000000001@s.whatsapp.net",
+  "senderName": "Mario",
+  "type": "audio",
+  "ptt": true,
+  "mediaMimetype": "audio/ogg; codecs=opus",
+  "mediaFile": "data/samples/nota.ogg",
+  "text": ""
+}

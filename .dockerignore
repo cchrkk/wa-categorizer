@@ -1,0 +1,25 @@
+# Non finire mai dentro l'immagine
+node_modules
+auth
+data
+.env
+.env.*
+config/rules.yaml
+config/rules.yml
+config/rules.json
+config/*.local.yaml
+
+# Roba di sviluppo
+.git
+.gitignore
+.github
+*.log
+.vscode
+.idea
+README.md
+Dockerfile
+.dockerignore
+compose.yaml
+start.bat
+test.bat
+npm-debug.log*

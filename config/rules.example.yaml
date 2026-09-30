@@ -1,0 +1,191 @@
+# ==============================================================
+#  wa-categorizer — regole (ESEMPIO)
+#
+#  Questo è il file di partenza: copialo in rules.yaml e modificalo.
+#      copy config\rules.example.yaml config\rules.yaml
+#
+#  Il file attivo è config/rules.yaml (oppure rules.json, per compatibilità).
+#  Salvi e le regole si ricaricano da sole: niente riavvio.
+#    npm run check       valida quello che hai scritto
+#    npm run simulate    prova un messaggio finto, senza toccare WhatsApp
+#
+#  Segnaposto usabili nelle stringhe:
+#    {{content}}  il testo, o la trascrizione se è un vocale  (il più usato)
+#    {{text}}  {{transcript}}  {{chat}} {{chatJid}}  {{sender}} {{senderJid}}
+#    {{rule}} {{ruleName}} {{type}} {{label}} {{confidence}} {{date}}
+#  Segnaposto sconosciuti restano visibili e `npm run check` li segnala.
+# ==============================================================
+
+settings:
+  # Scarica e trascrive i vocali (Groq / whisper locale, vedi .env)
+  transcribeAudio: true
+  # Log di tutti i messaggi in data/messages.jsonl
+  logMessages: true
+  # Quanto tenere i media scaricati in data/out/ (vocali, ecc.):
+  #   > 0  li conserva N giorni e poi li cancella  ← così puoi riascoltare
+  #   0    li cancella appena finita l'elaborazione
+  #   -1   non li cancella mai
+  # La cartella tmp/ (conversioni temporanee) viene comunque svuotata.
+  mediaRetentionDays: 7
+  # true = processa anche i messaggi che scrivi TU (utile per "note a me stesso")
+  processOwnMessages: false
+  # azione "shell" (esegue comandi locali): da lasciare false
+  allowShell: false
+
+
+rules:
+
+  # ------------------------------------------------------------
+  # Ordini: i vocali di Mario vengono trascritti
+  # ------------------------------------------------------------
+  - id: ordini-da-mario
+    name: "Ordini — vocali di Mario"
+    priority: 10
+    enabled: true
+
+    match:
+      chatName: Ordini                  # nome della chat (case-insensitive)
+      senderName:                       # chi scrive
+        - Mario
+        - Mario consegne
+      type: audio                       # text | audio | image | video | document | media | *
+
+    transcribe: true                    # trascrive PRIMA di eseguire le azioni
+
+    actions:
+      - type: notify.telegram
+        message: |
+          🎙️ *Ordine da Mario* ({{chat}})
+
+          "{{transcript}}"
+
+      - type: appendJsonl
+        file: data/ordini.jsonl
+
+      # --- azioni Home Assistant -------------------------------------
+      # Servono HA_URL e HA_TOKEN in .env, poi `npm run check` verifica da solo.
+      # I segnaposto funzionano anche dentro variables/ data / body.
+      #
+      # - type: ha.notify                     # notifica sul telefono
+      #   service: mobile_app_il_mio_telefono
+      #   title: "Ordine da {{sender}}"
+      #   message: "{{transcript}}"
+      #
+      # - type: ha.script                     # esegue uno script con variabili
+      #   script: script.notifica_ordine
+      #   variables:
+      #     testo: "{{transcript}}"
+      #     mittente: "{{sender}}"
+      #     chat: "{{chat}}"
+      #
+      # - type: ha.button                     # preme un bottone
+      #   button: button.campanello
+      #
+      # - type: ha.automation                 # attiva un'automazione
+      #   automation: cancello
+      #
+      # - type: ha.action                     # azione generica su una entità
+      #   entityId: light.salotto
+      #   action: turn_on
+      #   data:
+      #     brightness_pct: 60
+
+  # ------------------------------------------------------------
+  # Ordini scritti: basta che ci sia una quantità
+  # ------------------------------------------------------------
+  - id: ordini-scritti-con-prodotto
+    name: "Ordini — testo con quantità/prodotto"
+    priority: 20
+    enabled: true
+
+    match:
+      chatName: Ordini
+      type: text
+      textMatch:
+        mode: regex
+        # ATTENZIONE agli accenti: \b conosce solo [A-Za-z0-9_], quindi
+        # '\b(casse|città)\b' non matcherebbe MAI "città" (dopo la è c'è una
+        # virgola, e fra due non-lettere non c'è confine). Con flags: iu si
+        # usano i confini unicode e il problema sparisce.
+        # In alternativa, per una semplice lista di parole: mode: contains.
+        flags: iu
+        patterns:
+          - '(?<![\p{L}\p{N}])\d+\s*(casse|cartoni|bottiglie|pezzi)(?![\p{L}\p{N}])'
+
+    actions:
+      - type: appendJsonl
+        file: data/ordini.jsonl
+      - type: notify.telegram
+        message: |
+          📝 Ordine scritto in {{chat}} da {{sender}}:
+          {{text}}
+
+  # ------------------------------------------------------------
+  # Ordini passati al filtro dell'LLM: passa solo se È davvero un ordine
+  # ------------------------------------------------------------
+  - id: ordini-filtrati-dal-llm
+    name: "Ordini — passa solo se il testo È un ordine"
+    priority: 15
+    enabled: false
+
+    match:
+      chatName: Ordini
+      type: [text, audio]
+
+    transcribe: true
+    classify:
+      labels: [ordine, chiacchiera, spam]
+      minConfidence: 0.7
+      model: openai/gpt-oss-120b
+
+    actions:
+      - type: appendJsonl
+        file: data/ordini.jsonl
+      - type: notify.telegram
+        message: |
+          🧠 Ordine confermato dall'LLM ({{chat}} / {{sender}})
+          {{content}}
+
+  # ------------------------------------------------------------
+  # Prova: messaggi che mandi a te stesso
+  # Serve settings.processOwnMessages: true.
+  # Per vedere i jid e i nomi che il programma conosce: npm run contacts
+  # ------------------------------------------------------------
+  - id: note-a-me-stesso
+    name: "Note a me stesso"
+    priority: 90
+    enabled: false
+
+    match:
+      # "@me" = il tuo account, qualunque forma WhatsApp usi (numero o @lid).
+      senderJid: "@me"
+      type: [text, audio]
+
+    transcribe: true
+
+    actions:
+      - type: notify.console
+        message: "Nota per me: {{content}}"
+
+  # ------------------------------------------------------------
+  # Moderazione: link nei gruppi
+  # ------------------------------------------------------------
+  - id: link-da-moderare
+    name: "Link in gruppi"
+    priority: 50
+    enabled: false
+
+    match:
+      type: text
+      isGroup: true
+      textMatch:
+        mode: regex
+        patterns: ['https?://', 'www\.']
+
+    actions:
+      - type: webhook
+        url: https://example.com/hook
+        body:
+          motivo: link
+          chat: "{{chat}}"
+          testo: "{{text}}"

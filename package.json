@@ -1,0 +1,29 @@
+{
+  "name": "wa-categorizer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Legge i messaggi WhatsApp via Baileys, li categorizza con regole e scatena azioni (trascrizione vocali, notifiche, webhook, HA, reply)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "login": "node src/index.js --login",
+    "check": "node src/index.js --check",
+    "contacts": "node src/index.js --contacts",
+    "simulate": "node src/index.js --simulate fixtures/sample-text.json",
+    "simulate:audio": "node src/index.js --simulate fixtures/sample-audio.json",
+    "simulate:self": "node src/index.js --simulate data/sample-self.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "dotenv": "^16.4.5",
+    "pino": "^9.4.0",
+    "pino-pretty": "^11.2.2",
+    "qrcode-terminal": "^0.12.0",
+    "yaml": "^2.9.1"
+  }
+}

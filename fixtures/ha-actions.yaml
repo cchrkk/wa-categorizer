@@ -1,0 +1,61 @@
+# File di prova per `tools/mock-ha.mjs`: contiene tutte le azioni Home Assistant.
+#   node tools/mock-ha.mjs 8199
+#   HA_URL=http://127.0.0.1:8199 HA_TOKEN=prova node src/index.js --simulate fixtures/sample-text.json --config fixtures/ha-actions.yaml --live
+
+settings:
+  transcribeAudio: false
+  logMessages: false
+  mediaRetentionDays: -1
+
+rules:
+  - id: prova-azioni-ha
+    name: "Prova: tutte le azioni Home Assistant"
+    enabled: true
+    match:
+      type: text
+
+    actions:
+      # 1. premere un bottone
+      - type: ha.button
+        button: button.campanello
+
+      # 2. eseguire uno script passando variabili (segnaposto resi anche dentro)
+      - type: ha.script
+        script: script.notifica_ordine
+        variables:
+          testo: "{{content}}"
+          mittente: "{{sender}}"
+          chat: "{{chat}}"
+          jid: "{{senderJid}}"
+          quando: "{{date}}"
+
+      # 3. eseguire uno script e aspettare la sua risposta
+      - type: ha.script
+        script: script.con_risposta
+        wait: true
+        variables:
+          domanda: "{{content}}"
+
+      # 4. attivare un'automazione
+      - type: ha.automation
+        automation: cancello
+
+      # 5. notifica sul telefono (scorciatoia per notify.*)
+      - type: ha.notify
+        service: mobile_app_il_mio_telefono
+        title: "Ordine da {{sender}}"
+        message: "{{content}}"
+
+      # 6. servizio generico, con entity_id e dati
+      - type: ha.service
+        domain: light
+        service: turn_on
+        entityId: light.salotto
+        data:
+          brightness_pct: 60
+          rgb_color: [255, 200, 0]
+
+      # 7. azione generica su una entità: il dominio si ricava dall'entity_id
+      - type: ha.action
+        entityId: switch.presa_macchina
+        action: toggle

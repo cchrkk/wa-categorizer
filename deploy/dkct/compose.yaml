@@ -1,0 +1,62 @@
+# ==============================================================
+#  wa-categorizer su dkct — vive in /data/stacks/wa-categorizer/
+#
+#  Layout sul server:
+#    /data/stacks/wa-categorizer/
+#    ├─ compose.yaml   questo file (gestito da Dockhand, env 2)
+#    ├─ app/           clone del repo (deploy key read-only "dkct")
+#    ├─ .env           segreti (Groq, Telegram) — mode 600
+#    ├─ config/        rules.yaml, bind-montato: si ricarica a caldo
+#    └─ data/          sessione WhatsApp, log, media, rubrica
+#
+#  Differenza dall'omologo in radice: qui il build context è ./app
+#  (il repo è privato, quindi niente pull da GHCR senza token) e i dati
+#  sono bind mount invece di un volume nominale, così si ispezionano
+#  e si backuppano come tutto il resto di /data/stacks.
+# ==============================================================
+
+services:
+  wa-categorizer:
+    # L'immagine si costruisce sull'host con deploy/dkct/update.sh.
+    #
+    # Perché non `build:` qui: l'agent Hawser di dkct gira con
+    # `ProtectHome=true` (vedi /etc/systemd/system/hawser.service), quindi
+    # /root è read-only e buildx non può creare /root/.docker. Il pull invece
+    # non ha problemi. Quindi: build via SSH, avvio via Dockhand.
+    image: wa-categorizer:latest
+    pull_policy: never
+    container_name: wa-categorizer
+    restart: unless-stopped
+
+    # tini è già l'entrypoint dell'immagine: i segnali arrivano a node e il
+    # salvataggio di rubrica, stato e regole va a termine prima di uscire.
+    stop_grace_period: 20s
+
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data
+      AUTH_DIR: /app/data/auth
+      TZ: Europe/Rome
+      LOG_PRETTY: "false"
+      # dentro il container ascolta su tutte le interfacce: è il binding
+      # sull'host (WEB_PUBLISH_IP) a decidere se si vede in LAN
+      WEB_BIND: 0.0.0.0
+
+    # Pannello web. Con WEB_PUBLISH_IP=0.0.0.0 è visibile sulla LAN di ufficio.
+    # Docker bypassa UFW: questa porta non è filtrata da niente, quindi il
+    # WEB_TOKEN non è opzionale.
+    ports:
+      - "${WEB_PUBLISH_IP:-127.0.0.1}:${WEB_PORT:-8099}:${WEB_PORT:-8099}"
+
+    volumes:
+      # sessione WhatsApp + log + media + rubrica
+      - ./data:/app/data
+      # regole fuori dall'immagine: ricarica a caldo, niente rebuild
+      - ./config:/app/config
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
